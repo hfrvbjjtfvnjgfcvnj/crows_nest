@@ -1,0 +1,22 @@
+{
+  "station_latitude":12.345678,
+  "station_longitude":-23.456789,
+  "dump1090_aircraft_path":"/run/dump1090-mutability",
+  "dump1090_aircraft_name":"aircraft.json",
+  "pushover_notify": true,
+  "pushover_api_key": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "pushover_user_key": "xxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "aircraft_expire_seconds": 120,
+  "alert_expire_seconds": 600,
+  "alert_military": true,
+  "alert_government": true,
+  "alert_special": true,
+  "alert_notifications": true,
+  "alert_radius_meters": 25000,
+  "alert_without_position": false,
+  "db_username":"xxxxxxxx",
+  "db_password":"xxxxxxxx",
+  "db_host":"127.0.0.1",
+  "db_port":3306,
+  "db_database_name":"crows_nest"
+}

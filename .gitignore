@@ -1,0 +1,7 @@
+cred
+deps/
+config.json
+aircraft.csv
+icao_type_descriptions.csv
+aircraft.json
+icao_aircraft_types.json

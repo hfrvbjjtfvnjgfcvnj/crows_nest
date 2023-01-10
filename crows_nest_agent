@@ -1,0 +1,8 @@
+#!/bin/bash
+
+DIR="$(dirname "${0}")"
+cd "${DIR}"
+
+source ./venv/bin/activate
+
+./venv/bin/python3 crows_nest.py
