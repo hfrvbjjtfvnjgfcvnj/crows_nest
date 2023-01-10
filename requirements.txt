@@ -1,0 +1,4 @@
+inotify==0.2.10
+mariadb==1.1.4
+pyproj==3.4.0
+git+https://github.com/Wyattjoh/pushover

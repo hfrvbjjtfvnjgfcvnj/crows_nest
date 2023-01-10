@@ -1,0 +1,14 @@
+[Unit]
+Description=Crows Nest - alert and tracking monitor for dump1090
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/bash /opt/crows_nest/crows_nest_agent
+User=crows_nest
+Group=crows_nest
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+
