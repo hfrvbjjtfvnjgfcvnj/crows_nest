@@ -83,7 +83,8 @@ insert into alert_type(id,name) values(1,"local");
 insert into alert_type(id,name) values(2,"state");
 insert into alert_type(id,name) values(3,"federal");
 insert into alert_type(id,name) values(4,"military");
-insert into alert_type(id,name) values(5,"other");
+insert into alert_type(id,name) values(5,"government");
+insert into alert_type(id,name) values(6,"other");
 
 -- official FAA registration aircraft types
 CREATE OR REPLACE TABLE faa_aircraft_type(id CHAR, name varchar(30));
