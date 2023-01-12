@@ -87,7 +87,7 @@ def note_url(aircraft):
   url="https://globe.adsbexchange.com/aircraft_sil/%s.png"%(aircraft_type,);
   return url;
 
-def note_text(aircraft):
+def note_text(aircraft,alert_type):
   #print("--------------------")
   #print(aircraft);
   #print("--------------------")
@@ -100,13 +100,17 @@ def note_text(aircraft):
   lat=aircraft[3];
   lon=aircraft[4];
   registration='Unknown'
+  operator='Unknown'
   if (len(aircraft)>=18):
     model=aircraft[10];
     registration=aircraft[8];
     icao_type_description=aircraft[12];
     faa_type_aircraft=aircraft[17];
+    if (alert_type=='government'):
+      operator=aircraft[19];
 
-  text="Time: {}\nModel: {}\nDistance: {:.2f} miles\nReg: {}\nBearing: {} ({})\nHex Code: {}\nLatitude: {}\nLongitude: {}\nICAO Type: {}\nFAA Type: {}\n{}\n{}\n{}".format(
+  text="Operator: {}\nTime: {}\nModel: {}\nDistance: {:.2f} miles\nReg: {}\nBearing: {} ({})\nHex Code: {}\nLatitude: {}\nLongitude: {}\nICAO Type: {}\nFAA Type: {}\n{}\n{}\n{}".format(
+        operator,
         time,
         model,
         distance_miles,
@@ -151,7 +155,7 @@ def do_notification(data):
   #  sound='chopper';
   #  #priority=0;
   sound=note_sound(data[2]);
-  text=note_text(data[2])
+  text=note_text(data[2],data[3])
   url=note_url(data[2])
   pushover_notify(data[1],text,priority,sound,url);
 
@@ -215,7 +219,7 @@ def perform_detections(timestamp, cursor):
   #check for government aircraft
   if (config["alert_government"]):
     queue_notifications(new_notifications,
-      "select * from (((active_aircraft left join tar1090_db on active_aircraft.hex=tar1090_db.hex) left join icao_type_descriptions on tar1090_db.icao_type_code=icao_type_descriptions.type) ) left join faa_lookup_table on active_aircraft.hex=faa_lookup_table.mode_s_hex_code left join faa_aircraft_type on faa_lookup_table.type_aircraft=faa_aircraft_type.id join gov_records on active_aircraft.hex=gov_records.hex;",
+      "select * from (((active_aircraft left join tar1090_db on active_aircraft.hex=tar1090_db.hex) left join icao_type_descriptions on tar1090_db.icao_type_code=icao_type_descriptions.type) ) left join faa_lookup_table on active_aircraft.hex=faa_lookup_table.mode_s_hex_code left join faa_aircraft_type on faa_lookup_table.type_aircraft=faa_aircraft_type.id join gov_records on faa_lookup_table.n_number=gov_records.hex;",
       "Government Aircraft Detected",
       "Government Aircraft Position Acquired",
       'government');
