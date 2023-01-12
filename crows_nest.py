@@ -248,6 +248,10 @@ def commit_to_db(timestamp,aircraft):
   nucp=get_val(aircraft,'nucp');
   seen_pos=get_val(aircraft,'seen_pos');
   altitude=get_val(aircraft,'altitude');
+  try:
+    a=int(altitude, base=10);
+  except:
+    altitude='0';
   vert_rate=get_val(aircraft,'vert_rate');
   track=get_val(aircraft,'track');
   speed=get_val(aircraft,'speed');
