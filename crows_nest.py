@@ -141,7 +141,7 @@ def note_sound(aircraft):
   if ("T" == icao_description[2]):
     return "turbo_prop";
   if ("P" == icao_description[2]):
-    return "pison_engine";
+    return "piston_engine";
   return None;
 
 def do_notification(data):
