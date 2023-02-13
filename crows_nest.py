@@ -63,9 +63,9 @@ def pushover_notify(title,msg_text,priority,sound,url):
     msg.set('url', url);
   return po.send(msg);
 
-def find_active_alert(hex):
+def find_active_alert(hex,alert_type_name):
   #cursor.execute("select * from active_alerts where hex=?",(hex,));
-  cursor.execute("select * from active_alerts join active_aircraft on active_alerts.hex=active_aircraft.hex where active_alerts.hex=?",(hex,));
+  cursor.execute("select * from active_alerts join alert_type on active_alerts.alert_type=alert_type.id join active_aircraft on active_alerts.hex=active_aircraft.hex where active_alerts.hex=? and alert_type.id <= (select id from alert_type where name=?);",(hex,alert_type_name));
   return cursor.fetchall();
 
 def has_active_position(hex):
@@ -154,7 +154,12 @@ def do_notification(data):
   #if data[3] == 'government':
   #  sound='chopper';
   #  #priority=0;
-  sound=note_sound(data[2]);
+  if data[3] == 'loiter':
+    sound='loiter';
+  elif data[3] == 'spook':
+    sound='spook'
+  else:
+    sound=note_sound(data[2]);
   text=note_text(data[2],data[3])
   url=note_url(data[2])
   pushover_notify(data[1],text,priority,sound,url);
@@ -174,7 +179,9 @@ def queue_notifications(new_notifications,query,detected_title,position_title,al
     type_description=None;
 
     #lookup any pre-existing active alert for this aircraft
-    active_alert=find_active_alert(hex);
+    #this checks for any alert with type <= current alert type, allowing an escalation of notifications
+    #if neede
+    active_alert=find_active_alert(hex,alert_type_name);
 
     #is this a new detection without an existing alert?
     is_new_alert=(len(active_alert)==0);
@@ -196,12 +203,18 @@ def queue_notifications(new_notifications,query,detected_title,position_title,al
 
 def perform_detections(timestamp, cursor):
   new_notifications=[];
-  
+
+  #check for loitering aircraft
+  if (config["alert_loiter_seconds"] > 0): 
+    queue_notifications(new_notifications,
+      ("select * from (((active_aircraft left join tar1090_db on active_aircraft.hex=tar1090_db.hex) left join icao_type_descriptions on tar1090_db.icao_type_code=icao_type_descriptions.type) ) left join faa_lookup_table on active_aircraft.hex=faa_lookup_table.mode_s_hex_code left join faa_aircraft_type on faa_lookup_table.type_aircraft=faa_aircraft_type.id where active_aircraft.time-active_aircraft.first_det_time > %d;" % config["alert_loiter_seconds"]),
+      ("Aircraft Detected for > %d seconds" % config["alert_loiter_seconds"]),
+      "Potential Loitering Aircraft Detected",
+      'loiter');
+
   #check for military aircraft
   if (config["alert_military"]):
     queue_notifications(new_notifications,
-      #"select * from (active_aircraft left join known_military_aircraft on active_aircraft.hex=known_military_aircraft.hex) where active_aircraft.hex>='ADF7C8' and active_aircraft.hex<='AFFFFF'",
-      #"select * from (((active_aircraft left join tar1090_db on active_aircraft.hex=tar1090_db.hex) join icao_type_descriptions on tar1090_db.icao_type_code=icao_type_descriptions.type) ) join faa_lookup_table on active_aircraft.hex=faa_lookup_table.mode_s_hex_code left join faa_aircraft_type on faa_lookup_table.type_aircraft=faa_aircraft_type.id where active_aircraft.hex>='ADF7C8' and active_aircraft.hex<='AFFFFF';",
       "select * from (((active_aircraft left join tar1090_db on active_aircraft.hex=tar1090_db.hex) left join icao_type_descriptions on tar1090_db.icao_type_code=icao_type_descriptions.type) ) left join faa_lookup_table on active_aircraft.hex=faa_lookup_table.mode_s_hex_code left join faa_aircraft_type on faa_lookup_table.type_aircraft=faa_aircraft_type.id where active_aircraft.hex>='ADF7C8' and active_aircraft.hex<='AFFFFF';",
       "Military Aircraft Detected",
       "Military Aircraft Position Acquired",
@@ -286,13 +299,17 @@ def commit_to_db(timestamp,aircraft):
       bearing = bearing-360;
     cursor.execute("INSERT INTO signal_reception(time,bearing,dist,alt,rssi) values (?,?,?,?,?)",(timestamp,bearing,distance_m,altitude,rssi));
   if (lat is None) and (lon is None):
-    cursor.execute("INSERT INTO active_aircraft(hex, time, seen_pos, latitude, longitude, distance,bearing) values (?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE time=?",(icao.encode(),timestamp,seen_pos,lat,lon,distance_m,bearing,timestamp));
+    cursor.execute("INSERT INTO active_aircraft(hex, time, first_det_time, seen_pos, latitude, longitude, distance,bearing) values (?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE time=?",(icao.encode(),timestamp,timestamp,seen_pos,lat,lon,distance_m,bearing,timestamp));
   else:
-    cursor.execute("INSERT INTO active_aircraft(hex, time, seen_pos, latitude, longitude, distance,bearing) values (?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE time=?, seen_pos=?, latitude=?, longitude=?, distance=?, bearing=?",(icao.encode(),timestamp,seen_pos,lat,lon,distance_m,bearing,timestamp,seen_pos,lat,lon,distance_m,bearing));
+    cursor.execute("INSERT INTO active_aircraft(hex, time, first_det_time, seen_pos, latitude, longitude, distance,bearing) values (?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE time=?, seen_pos=?, latitude=?, longitude=?, distance=?, bearing=?",(icao.encode(),timestamp,timestamp,seen_pos,lat,lon,distance_m,bearing,timestamp,seen_pos,lat,lon,distance_m,bearing));
+    cursor.execute("INSERT INTO active_aircraft_history(hex, time, seen_pos, latitude, longitude, distance,bearing) values (?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE time=?, seen_pos=?, latitude=?, longitude=?, distance=?, bearing=?",(icao.encode(),timestamp,seen_pos,lat,lon,distance_m,bearing,timestamp,seen_pos,lat,lon,distance_m,bearing));
   cursor.execute("INSERT INTO detected_aircraft(hex, time, seen_pos) values (?,?,?) ON DUPLICATE KEY UPDATE time=?, seen_pos=?",(icao.encode(),timestamp,seen_pos,timestamp,seen_pos));
   
 
+  #delete any expired "active" aircraft (that are not longer being seen and updating)
   cursor.execute("DELETE FROM active_aircraft WHERE time<?",(time.time()-config["aircraft_expire_seconds"],));
+  #delete any track histories for any aircraft no longer "active"
+  cursor.execute("DELETE FROM active_aircraft_history WHERE NOT EXISTS(SELECT NULL FROM active_aircraft where active_aircraft.hex = active_aircraft_history.hex);");
   cursor.execute("UPDATE active_alerts SET last_seen=? where hex=?", (timestamp,icao));
 
   conn.commit();
@@ -374,7 +391,6 @@ def test2():
     update_from_json("aircraft.json");
 
 load_configuration();
-
 ag_sbs = {};
 ag_time = time.time();
 
