@@ -81,12 +81,14 @@ delete from alert_type;
 insert into alert_type(id,name) values(0,"special");
 insert into alert_type(id,name) values(1,"spook");
 insert into alert_type(id,name) values(2,"loiter");
-insert into alert_type(id,name) values(3,"local");
-insert into alert_type(id,name) values(4,"state");
-insert into alert_type(id,name) values(5,"federal");
-insert into alert_type(id,name) values(6,"military");
-insert into alert_type(id,name) values(7,"government");
-insert into alert_type(id,name) values(8,"other");
+insert into alert_type(id,name) values(3,"intercept");
+insert into alert_type(id,name) values(4, "eta");
+insert into alert_type(id,name) values(5,"local");
+insert into alert_type(id,name) values(6,"state");
+insert into alert_type(id,name) values(7,"federal");
+insert into alert_type(id,name) values(8,"military");
+insert into alert_type(id,name) values(9,"government");
+insert into alert_type(id,name) values(10,"other");
 
 -- official FAA registration aircraft types
 CREATE OR REPLACE TABLE faa_aircraft_type(id CHAR, name varchar(30));
@@ -103,10 +105,10 @@ insert into faa_aircraft_type(id,name) values ('H',"hybrid lift");
 insert into faa_aircraft_type(id,name) values ('O',"other");
 
 -- table of aircraft actively being tracked
-CREATE OR REPLACE TABLE active_aircraft(hex CHAR(6), time DOUBLE, first_det_time DOUBLE, seen_pos FLOAT, latitude DOUBLE, longitude DOUBLE, distance FLOAT, bearing INT, PRIMARY KEY(hex));
+CREATE OR REPLACE TABLE active_aircraft(hex CHAR(6), time DOUBLE, seen_pos FLOAT, latitude DOUBLE, longitude DOUBLE, distance FLOAT, bearing INT, first_det_time DOUBLE, speed INT, track INT, altitude INT, PRIMARY KEY(hex));
 
 -- table history of positions of aircraft actively being tracked
-CREATE OR REPLACE TABLE active_aircraft_history(hex CHAR(6), time DOUBLE, seen_pos FLOAT, latitude DOUBLE, longitude DOUBLE, distance FLOAT, bearing INT, PRIMARY KEY(hex,time));
+CREATE OR REPLACE TABLE active_aircraft_history(hex CHAR(6), time DOUBLE, seen_pos FLOAT, latitude DOUBLE, longitude DOUBLE, distance FLOAT, bearing INT, speed INT, track INT, altitude INT, PRIMARY KEY(hex,time));
 
 -- list of aircraft we have ever tracked
 CREATE OR REPLACE TABLE detected_aircraft(hex CHAR(6), time DOUBLE, seen_pos FLOAT, PRIMARY KEY(hex));

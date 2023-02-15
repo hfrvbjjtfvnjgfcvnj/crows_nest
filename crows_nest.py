@@ -13,12 +13,15 @@ import shutil
 import tempfile
 from threading import Thread
 
+from loiter_detector import *
+
 directions=["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
 alert_types={}
 config={}
 old_data={}
 inotify_queue=Queue()
 temp_dir=tempfile.mkdtemp();
+loiter_det=loiter_detector();
 
 def load_configuration():
   global config;
@@ -101,13 +104,13 @@ def note_text(aircraft,alert_type):
   lon=aircraft[4];
   registration='Unknown'
   operator='Unknown'
-  if (len(aircraft)>=18):
-    model=aircraft[10];
-    registration=aircraft[8];
-    icao_type_description=aircraft[12];
-    faa_type_aircraft=aircraft[17];
+  if (len(aircraft)>=19):
+    model=aircraft[14];
+    registration=aircraft[12];
+    icao_type_description=aircraft[16];
+    faa_type_aircraft=aircraft[21];
     if (alert_type=='government'):
-      operator=aircraft[19];
+      operator=aircraft[23];
 
   text="Operator: {}\nTime: {}\nModel: {}\nDistance: {:.2f} miles\nReg: {}\nBearing: {} ({})\nHex Code: {}\nLatitude: {}\nLongitude: {}\nICAO Type: {}\nFAA Type: {}\n{}\n{}\n{}".format(
         operator,
@@ -130,7 +133,7 @@ def note_text(aircraft,alert_type):
 def note_sound(aircraft):
   if aircraft is None:
     return None;
-  icao_description=aircraft[12];
+  icao_description=aircraft[16];
   if icao_description is None:
     return None;
   if ("H" == icao_description[0]) or ("T" == icao_description[0]):
@@ -147,19 +150,16 @@ def note_sound(aircraft):
 def do_notification(data):
   sound=None;
   priority=0;
-  #pushover_notify(n[1],n[2],0);
-  #if data[3] == 'military':
-  #  sound='fastmover';
-  #  #priority=-1;
-  #if data[3] == 'government':
-  #  sound='chopper';
-  #  #priority=0;
+  #print("do_notification");
+  #print(data);
+  #print(data[3]);
   if data[3] == 'loiter':
     sound='loiter';
   elif data[3] == 'spook':
     sound='spook'
   else:
     sound=note_sound(data[2]);
+  #print(sound);
   text=note_text(data[2],data[3])
   url=note_url(data[2])
   pushover_notify(data[1],text,priority,sound,url);
@@ -201,16 +201,90 @@ def queue_notifications(new_notifications,query,detected_title,position_title,al
       if not alert_has_pos:
         new_notifications.append((aircraft[0],position_title,aircraft,alert_type_name));
 
+def detect_intercepts(new_notifications):
+  station_lat=config["station_latitude"];
+  station_lon=config["station_longitude"];
+  rows=[]
+  cursor.execute("select * from active_aircraft");
+  rows=cursor.fetchall();
+  time_limit=600;
+  time_step=15;
+  alert_radius_m=config["alert_eta_radius_meters"];
+  eta_lat=station_lat;
+  eta_lon=station_lon;
+  for aircraft in rows:
+    lat=aircraft[3];
+    lon=aircraft[4];
+    speed_knots=aircraft[8];
+    track=aircraft[9];
+    #print("aircraft:");
+    #print(aircraft);
+    if (lat is None) or (lon is None) or (speed_knots is None) or (track is None):
+      continue;
+    
+    #print("lat: %f" % lat);
+    #print("lon: %f" % lon);
+    #print("speed_knots: %f" % speed_knots);
+    #print("track: %f" % track);
+    #print("detect_intercepts\n------------");
+    #print(aircraft);
+    #print("\n-------------");
+    speed_meters_ps=speed_knots*0.514444; #1 knot ~= 0.514444 mps
+    bearing,back_azimuth,distance_m = geo.inv(station_lon, station_lat, lon, lat);
+    #print("speed m/s: %d" % speed_meters_ps);
+    #print("bearing: %d" % bearing);
+    #print("distance m: %d" % distance_m);
+    #print("time_limit: %d" % time_limit);
+    #print("time_step: %d" % time_step);
+    #print("alert_radius_m: %d" % alert_radius_m);
+    #print("eta_lat: %f" % eta_lat);
+    #print("eta_lon: %f" % eta_lon);
+    for t in range(0,time_limit+1,time_step):
+        #iterate over each time step in the detection range
+
+        #estimate distance along track at each step
+        proj_distance=speed_meters_ps*t;
+
+        #compute estimated position at each step
+        plon,plat,pbaz = geo.fwd(lon,lat,track,proj_distance);
+
+        #compute distance to estimated position
+        proj_bearing,proj_back_azimuth,proj_distance_m = geo.inv(eta_lon, eta_lat, plon, plat);
+
+        #print(" t: %d" % t);
+        #print(" proj_distance: %f" % proj_distance);
+        #print(" plon: %f" % plon);
+        #print(" plat: %f" % plat);
+        #print(" distance to plon/plat: %f" % proj_distance_m);
+
+        if (proj_distance_m < alert_radius_m):
+          #add alert
+          queue_notifications(new_notifications,
+            ("select * from (((active_aircraft left join tar1090_db on active_aircraft.hex=tar1090_db.hex) left join icao_type_descriptions on tar1090_db.icao_type_code=icao_type_descriptions.type) ) left join faa_lookup_table on active_aircraft.hex=faa_lookup_table.mode_s_hex_code left join faa_aircraft_type on faa_lookup_table.type_aircraft=faa_aircraft_type.id where active_aircraft.hex = '%s';" % aircraft[0]),
+            "Aircraft On Possible Intercept Course",
+            "Aircraft On Possible Intercept Course",
+            'intercept');
+          break;          
+
 def perform_detections(timestamp, cursor):
   new_notifications=[];
 
   #check for loitering aircraft
-  if (config["alert_loiter_seconds"] > 0): 
+  if (config["alert_loiter"]): 
+    loitering=loiter_det.check_for_loiter(None);
+    if (len(loitering) > 0):
+      cursor.execute("CREATE OR REPLACE TABLE loiter_temp(hex CHAR(6) PRIMARY KEY);");
+      for loiterer in loitering:
+        cursor.execute("INSERT INTO loiter_temp(hex) VALUES ('?')",(loiterer[0].encode(),));
+      conn.commit();
     queue_notifications(new_notifications,
-      ("select * from (((active_aircraft left join tar1090_db on active_aircraft.hex=tar1090_db.hex) left join icao_type_descriptions on tar1090_db.icao_type_code=icao_type_descriptions.type) ) left join faa_lookup_table on active_aircraft.hex=faa_lookup_table.mode_s_hex_code left join faa_aircraft_type on faa_lookup_table.type_aircraft=faa_aircraft_type.id where active_aircraft.time-active_aircraft.first_det_time > %d;" % config["alert_loiter_seconds"]),
-      ("Aircraft Detected for > %d seconds" % config["alert_loiter_seconds"]),
+      ("select * from (((active_aircraft left join tar1090_db on active_aircraft.hex=tar1090_db.hex) left join icao_type_descriptions on tar1090_db.icao_type_code=icao_type_descriptions.type) ) left join faa_lookup_table on active_aircraft.hex=faa_lookup_table.mode_s_hex_code left join faa_aircraft_type on faa_lookup_table.type_aircraft=faa_aircraft_type.id where exists (SELECT hex FROM loiter_temp where loiter_temp.hex=active_aircraft.hex);"),
+      "Potential Loitering Aircraft Detected",
       "Potential Loitering Aircraft Detected",
       'loiter');
+
+  #check for intercepting aircraft
+  detect_intercepts(new_notifications);
 
   #check for military aircraft
   if (config["alert_military"]):
@@ -239,7 +313,7 @@ def perform_detections(timestamp, cursor):
     
   for n in new_notifications:
     #print("NOTIFY: %s\n%s"%(n[0],n[2]));
-    cursor.execute('insert into active_alerts(hex,first_seen,last_seen,alert_type) values(?,?,?,?) ON DUPLICATE KEY UPDATE last_seen=?', (n[0],timestamp,timestamp,alert_types[n[3]],timestamp));
+    cursor.execute("insert into active_alerts(hex,first_seen,last_seen,alert_type) values(?,?,?,?) ON DUPLICATE KEY UPDATE last_seen=?, alert_type=? ;", (n[0],timestamp,timestamp,alert_types[n[3]],timestamp,alert_types[n[3]]));
     if (config["alert_notifications"]):
       do_notification(n);
 
@@ -261,10 +335,11 @@ def commit_to_db(timestamp,aircraft):
   nucp=get_val(aircraft,'nucp');
   seen_pos=get_val(aircraft,'seen_pos');
   altitude=get_val(aircraft,'altitude');
-  try:
-    a=int(altitude, base=10);
-  except:
-    altitude='0';
+  #print(aircraft);
+  #print(type(altitude));
+  #print(altitude);
+  if type(0) != type(altitude):
+    altitude=0;
   vert_rate=get_val(aircraft,'vert_rate');
   track=get_val(aircraft,'track');
   speed=get_val(aircraft,'speed');
@@ -299,18 +374,25 @@ def commit_to_db(timestamp,aircraft):
       bearing = bearing-360;
     cursor.execute("INSERT INTO signal_reception(time,bearing,dist,alt,rssi) values (?,?,?,?,?)",(timestamp,bearing,distance_m,altitude,rssi));
   if (lat is None) and (lon is None):
-    cursor.execute("INSERT INTO active_aircraft(hex, time, first_det_time, seen_pos, latitude, longitude, distance,bearing) values (?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE time=?",(icao.encode(),timestamp,timestamp,seen_pos,lat,lon,distance_m,bearing,timestamp));
+    cursor.execute("INSERT INTO active_aircraft(hex, time, first_det_time, seen_pos, latitude, longitude, distance,bearing,speed,track,altitude) values (?,?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE time=?",(icao.encode(),timestamp,timestamp,seen_pos,lat,lon,distance_m,bearing,speed,track,altitude,timestamp));
   else:
-    cursor.execute("INSERT INTO active_aircraft(hex, time, first_det_time, seen_pos, latitude, longitude, distance,bearing) values (?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE time=?, seen_pos=?, latitude=?, longitude=?, distance=?, bearing=?",(icao.encode(),timestamp,timestamp,seen_pos,lat,lon,distance_m,bearing,timestamp,seen_pos,lat,lon,distance_m,bearing));
-    cursor.execute("INSERT INTO active_aircraft_history(hex, time, seen_pos, latitude, longitude, distance,bearing) values (?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE time=?, seen_pos=?, latitude=?, longitude=?, distance=?, bearing=?",(icao.encode(),timestamp,seen_pos,lat,lon,distance_m,bearing,timestamp,seen_pos,lat,lon,distance_m,bearing));
+    cursor.execute("INSERT INTO active_aircraft       (hex, time, first_det_time, seen_pos, latitude, longitude, distance,bearing,speed,track,altitude) values (?,?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE time=?, seen_pos=?, latitude=?, longitude=?, distance=?, bearing=?, speed=?, track=?, altitude=?",(icao.encode(),timestamp,timestamp,seen_pos,lat,lon,distance_m,bearing,speed,track,altitude,timestamp,seen_pos,lat,lon,distance_m,bearing,speed,track,altitude));
+    cursor.execute("INSERT INTO active_aircraft_history(hex, time, seen_pos, latitude, longitude, distance,bearing,speed,track,altitude) values (?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE time=?, seen_pos=?, latitude=?, longitude=?, distance=?, bearing=?, speed=?, track=?, altitude=?",(icao.encode(),timestamp,seen_pos,lat,lon,distance_m,bearing,speed,track,altitude,timestamp,seen_pos,lat,lon,distance_m,bearing,speed,track,altitude));
+    loiter_det.add_sample(icao,lat,lon,timestamp,track);
   cursor.execute("INSERT INTO detected_aircraft(hex, time, seen_pos) values (?,?,?) ON DUPLICATE KEY UPDATE time=?, seen_pos=?",(icao.encode(),timestamp,seen_pos,timestamp,seen_pos));
   
+  conn.commit();
 
   #delete any expired "active" aircraft (that are not longer being seen and updating)
   cursor.execute("DELETE FROM active_aircraft WHERE time<?",(time.time()-config["aircraft_expire_seconds"],));
   #delete any track histories for any aircraft no longer "active"
   cursor.execute("DELETE FROM active_aircraft_history WHERE NOT EXISTS(SELECT NULL FROM active_aircraft where active_aircraft.hex = active_aircraft_history.hex);");
   cursor.execute("UPDATE active_alerts SET last_seen=? where hex=?", (timestamp,icao));
+
+  #purge records from the loiter detector when aircraft drop off the active list
+  cursor.execute("SELECT hex FROM active_aircraft;");
+  list_of_hexes=cursor.fetchall();
+  loiter_det.purge_missing_hexes(list_of_hexes);
 
   conn.commit();
 
