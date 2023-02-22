@@ -20,8 +20,9 @@ alert_types={}
 config={}
 old_data={}
 inotify_queue=Queue()
-temp_dir=tempfile.mkdtemp();
+temp_dir='/tmp'
 loiter_det=loiter_detector();
+dump1090_time=time.time();
 
 def load_configuration():
   global config;
@@ -201,44 +202,34 @@ def queue_notifications(new_notifications,query,detected_title,position_title,al
       if not alert_has_pos:
         new_notifications.append((aircraft[0],position_title,aircraft,alert_type_name));
 
-def detect_intercepts(new_notifications):
-  station_lat=config["station_latitude"];
-  station_lon=config["station_longitude"];
+def detect_intercepts_at(new_notifications,eta_lat,eta_lon):
   rows=[]
-  cursor.execute("select * from active_aircraft");
+  cursor.execute("select * from (((active_aircraft left join tar1090_db on active_aircraft.hex=tar1090_db.hex) left join icao_type_descriptions on tar1090_db.icao_type_code=icao_type_descriptions.type) ) left join faa_lookup_table on active_aircraft.hex=faa_lookup_table.mode_s_hex_code left join faa_aircraft_type on faa_lookup_table.type_aircraft=faa_aircraft_type.id");
   rows=cursor.fetchall();
   time_limit=600;
   time_step=15;
   alert_radius_m=config["alert_eta_radius_meters"];
-  eta_lat=station_lat;
-  eta_lon=station_lon;
   for aircraft in rows:
     lat=aircraft[3];
     lon=aircraft[4];
     speed_knots=aircraft[8];
     track=aircraft[9];
-    #print("aircraft:");
-    #print(aircraft);
+    icao_type_description=aircraft[16];
     if (lat is None) or (lon is None) or (speed_knots is None) or (track is None):
       continue;
+
+    if icao_type_description is not None:
+      #get ICAO code (ex: L2J, H1T, etc) and extract first character as airframe type
+      typecode=icao_type_description[0];
+      typefilter=config.get("alert_aircraft_type","all");
+
+      #if this type doesn't match the filter, skip the aircraft
+      #"" and "all" match all codes
+      if typefilter != "" and typefilter != "all" and typecode not in typefilter:
+        continue;
     
-    #print("lat: %f" % lat);
-    #print("lon: %f" % lon);
-    #print("speed_knots: %f" % speed_knots);
-    #print("track: %f" % track);
-    #print("detect_intercepts\n------------");
-    #print(aircraft);
-    #print("\n-------------");
     speed_meters_ps=speed_knots*0.514444; #1 knot ~= 0.514444 mps
-    bearing,back_azimuth,distance_m = geo.inv(station_lon, station_lat, lon, lat);
-    #print("speed m/s: %d" % speed_meters_ps);
-    #print("bearing: %d" % bearing);
-    #print("distance m: %d" % distance_m);
-    #print("time_limit: %d" % time_limit);
-    #print("time_step: %d" % time_step);
-    #print("alert_radius_m: %d" % alert_radius_m);
-    #print("eta_lat: %f" % eta_lat);
-    #print("eta_lon: %f" % eta_lon);
+    bearing,back_azimuth,distance_m = geo.inv(eta_lon, eta_lat, lon, lat);
     for t in range(0,time_limit+1,time_step):
         #iterate over each time step in the detection range
 
@@ -251,12 +242,6 @@ def detect_intercepts(new_notifications):
         #compute distance to estimated position
         proj_bearing,proj_back_azimuth,proj_distance_m = geo.inv(eta_lon, eta_lat, plon, plat);
 
-        #print(" t: %d" % t);
-        #print(" proj_distance: %f" % proj_distance);
-        #print(" plon: %f" % plon);
-        #print(" plat: %f" % plat);
-        #print(" distance to plon/plat: %f" % proj_distance_m);
-
         if (proj_distance_m < alert_radius_m):
           #add alert
           queue_notifications(new_notifications,
@@ -266,16 +251,29 @@ def detect_intercepts(new_notifications):
             'intercept');
           break;          
 
+def detect_intercepts(new_notifications):
+  positions=config.get("alert_eta_posititions", []);
+  if len(positions) == 0:
+    station_lat=config["station_latitude"];
+    station_lon=config["station_longitude"];
+    positions.append([station_lat,station_lon]);
+  for pos in positions:
+    detect_intercepts_at(new_notifications,pos[0],pos[1]);
+
 def perform_detections(timestamp, cursor):
   new_notifications=[];
 
   #check for loitering aircraft
   if (config["alert_loiter"]): 
-    loitering=loiter_det.check_for_loiter(None);
-    if (len(loitering) > 0):
+    loitering_data=loiter_det.check_for_loiter(None);
+    loitering_hex_strings=loitering_data.keys();
+    if (len(loitering_hex_strings) > 0):
       cursor.execute("CREATE OR REPLACE TABLE loiter_temp(hex CHAR(6) PRIMARY KEY);");
-      for loiterer in loitering:
-        cursor.execute("INSERT INTO loiter_temp(hex) VALUES ('?')",(loiterer[0].encode(),));
+      for loiterer in loitering_hex_strings:
+        #s=loiterer[0].encode();
+        #if (len(s) != 6):
+        #  print("WARNING: %s encodes to %s" % (loiterer[0],s));
+        cursor.execute("INSERT INTO loiter_temp(hex) VALUES (?) ON DUPLICATE KEY UPDATE hex=?",(loiterer.encode(),loiterer.encode()));
       conn.commit();
     queue_notifications(new_notifications,
       ("select * from (((active_aircraft left join tar1090_db on active_aircraft.hex=tar1090_db.hex) left join icao_type_descriptions on tar1090_db.icao_type_code=icao_type_descriptions.type) ) left join faa_lookup_table on active_aircraft.hex=faa_lookup_table.mode_s_hex_code left join faa_aircraft_type on faa_lookup_table.type_aircraft=faa_aircraft_type.id where exists (SELECT hex FROM loiter_temp where loiter_temp.hex=active_aircraft.hex);"),
@@ -317,12 +315,36 @@ def perform_detections(timestamp, cursor):
     if (config["alert_notifications"]):
       do_notification(n);
 
-def clear_old_alerts():
-  cursor.execute("delete from active_alerts where last_seen<? returning *",(time.time()-config["alert_expire_seconds"],));
-  for row in cursor:
-    print("clearing alert: %s" % row[0]);
+def clear_expired():
+  cursor.execute("delete from active_alerts where last_seen<? returning *",(dump1090_time-config["alert_expire_seconds"],));
+  #for row in cursor:
+  #  print("clearing alert: %s" % row[0]);
+  #delete any expired "active" aircraft (that are not longer being seen and updating)
+  cursor.execute("DELETE FROM active_aircraft WHERE time<? RETURNING *",(dump1090_time-config["aircraft_expire_seconds"],));
+  #expiring=cursor.fetchall();
+  #if (len(expiring) > 0):
+  #  print("Current dump1090 Time: %f" % dump1090_time);
+  #  print("Cuttoff Time: %f" % (dump1090_time-config["aircraft_expire_seconds"]));
+  #for exp_row in expiring:
+  #  print("Expiring hex from active_aircraft: %s" % exp_row[0]);
+  #  print(exp_row)
+
+  #delete any track histories for any aircraft no longer "active"
+  cursor.execute("DELETE FROM active_aircraft_history WHERE NOT EXISTS(SELECT NULL FROM active_aircraft where active_aircraft.hex = active_aircraft_history.hex);");
+  
+  conn.commit();
+
+  #purge records from the loiter detector when aircraft drop off the active list
+  cursor.execute("SELECT hex FROM active_aircraft;");
+  rows=cursor.fetchall();
+  list_of_hexes=[]
+  for row in rows:
+    list_of_hexes.append(row[0]);
+  loiter_det.purge_missing_hexes(list_of_hexes);
+  conn.commit();
 
 def commit_to_db(timestamp,aircraft):
+  global dump1090_time;
   #print(timestamp);
   #print(aircraft);
   station_lat=config["station_latitude"];
@@ -360,7 +382,11 @@ def commit_to_db(timestamp,aircraft):
   #print(messages);
   #print(seen);
   #print(rssi);
-  
+ 
+  #record incoming sample times - there seems to be some drift between dump1090 and crows_nest
+  #maybe dump1090 isn't using system time and is tracking it's own time somehow?
+  dump1090_time=timestamp;
+
   cursor.execute("INSERT INTO data_log(time,hex,flight,lat,lon,altitude,vert_rate,track,speed,seen,seen_pos,rssi,nucp,squawk) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?)", (timestamp,icao.encode(),flight,lat,lon,altitude,vert_rate,track,speed,seen,seen_pos,rssi,nucp,squawk));
   
   #if lat is not None and lon is not None and rssi is not None and altitude is not None:
@@ -381,19 +407,7 @@ def commit_to_db(timestamp,aircraft):
     loiter_det.add_sample(icao,lat,lon,timestamp,track);
   cursor.execute("INSERT INTO detected_aircraft(hex, time, seen_pos) values (?,?,?) ON DUPLICATE KEY UPDATE time=?, seen_pos=?",(icao.encode(),timestamp,seen_pos,timestamp,seen_pos));
   
-  conn.commit();
-
-  #delete any expired "active" aircraft (that are not longer being seen and updating)
-  cursor.execute("DELETE FROM active_aircraft WHERE time<?",(time.time()-config["aircraft_expire_seconds"],));
-  #delete any track histories for any aircraft no longer "active"
-  cursor.execute("DELETE FROM active_aircraft_history WHERE NOT EXISTS(SELECT NULL FROM active_aircraft where active_aircraft.hex = active_aircraft_history.hex);");
   cursor.execute("UPDATE active_alerts SET last_seen=? where hex=?", (timestamp,icao));
-
-  #purge records from the loiter detector when aircraft drop off the active list
-  cursor.execute("SELECT hex FROM active_aircraft;");
-  list_of_hexes=cursor.fetchall();
-  loiter_det.purge_missing_hexes(list_of_hexes);
-
   conn.commit();
 
 def update_from_json(json_file):
@@ -409,20 +423,29 @@ def update_from_json(json_file):
   old_data=data;
   timestamp=data['now'];
   aircraft_list=data['aircraft'];
+  #print("time.time() %f \n dump1090_time: %f \n diff: %f" % (time.time(), timestamp, (time.time()-timestamp)));
+
+  if (abs(time.time()-timestamp) > 10):
+    print("ERROR: TIME DRIFT. EXITING TO PRESERVE LOGS")
+    exit(1);
+
   for aircraft in aircraft_list:
     commit_to_db(timestamp, aircraft);
-  clear_old_alerts(); 
+  clear_expired(); 
   perform_detections(timestamp,cursor);
   conn.commit();
 
 def _main_inotify():
   i = inotify.adapters.Inotify();
   i.add_watch(config["dump1090_aircraft_path"]);
+  inpath=os.path.join(config["dump1090_aircraft_path"],config["dump1090_aircraft_name"]);
+  tmppath="/tmp/cna.json"
 
   for event in i.event_gen(yield_nones=False):
     (_,type_names,path,filename)=event;
     if (config["dump1090_aircraft_name"] == filename) and ('IN_MOVED_TO' in type_names):
-      update_from_json();
+      shutil.copyfile(inpath,tmppath);
+      update_from_json(tmppath);
 
 def _thread_inotify_queue_reader():
   while True:
@@ -495,8 +518,8 @@ geo=pyproj.Geod(ellps='WGS84')
 
 if __name__ == '__main__':
   #_main();
-  #_main_inotify();
-  _main_inotify_queue();
+  _main_inotify();
+  #_main_inotify_queue();
   #test();
   #test2();
 
