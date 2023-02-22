@@ -58,9 +58,9 @@ class loiter_detector:
     self.nav_records[hex_string] = nav_record;
 
   def purge_missing_hexes(self,active_hexes):
-    print("--------");
-    print(active_hexes);
-    print("--------");
+    #print("--------");
+    #print(active_hexes);
+    #print("--------");
     tracked_hexes=self.nav_records.keys();
     to_remove=[]
     for hex in tracked_hexes:
