@@ -17,7 +17,7 @@ def is_continuous(vector,maxdiff):
   return True;
 
 def unwrap_track(track):
-  wrap_limit=90;
+  wrap_limit=180;
   wraps=[]
   dts=[]
 
@@ -55,9 +55,37 @@ def unwrap_track(track):
   track[wraps[0]+1:len(track)]=wrapped;
   return track
 
-def is_loiter(track,time,max_time_discontinuity):
+#heading_max_discontinuity=10;
+#def check_circuit(unwrapped_track,time,loiter_degrees,loiter_min_duration):
+#  #does the heading track represent enough of a loitering pattern?
+#  t2_max=max(unwrapped_track);
+#  t2_min=min(t2);
+#  
+#  if abs(t2_max-t2_min) < loiter_degrees:
+#    return false;
+#  
+#  t2_max_i=unwrapped_track.index(t2_max);
+#  t2_min_i=unwrapped_track.index(t2_min);
+#
+#  #does the loiter represent enough time?
+#
+#  for i in range(t2_min_i,t2_max_i):
+#    delta=abs(unwrapped_track[i+1]-unwrapped_track[i]);
+#    if (delta > heading_max_discontinuity):
+#      return false;
+#  return true;
+
+def is_loiter(track,time,max_time_discontinuity,loiter_degrees,loiter_trigger_duration):
   if (len(time) == 0):
     return False;
+
+  if ((time[-1]-time[0]) > loiter_trigger_duration):
+    print("Triggering loiter due to track duration");
+    print("time[-1]: %f" % time[-1]);
+    print("time[0]: %f" % time[0]);
+    print("time[-1]-time[0]: %f" % (time[-1]-time[0]));
+    print("loiter_trigger_duration: %f" % loiter_trigger_duration);
+    return True;
   #can't call a loiter if we aren't continuous
   if not is_continuous(time, max_time_discontinuity):
     return False;
@@ -65,5 +93,7 @@ def is_loiter(track,time,max_time_discontinuity):
   t2=unwrap_track(track);
   #check for a circuit in the track heading
   #print(t2)
-  return max(t2)-min(t2)>360;
+  
+  return max(t2)-min(t2)>=loiter_degrees;
+  
 

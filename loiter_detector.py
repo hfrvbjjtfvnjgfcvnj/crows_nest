@@ -1,17 +1,29 @@
 from loiter import *
 import time
 
+loiter_degrees_DEFAULT=360;
+loiter_trigger_duration_DEFAULT=9999999;
+loiter_aircraft_type_DEFAULT="*";
+
 class loiter_detector:
   def __init__(self) -> None:
     self.nav_records={}
     self.debug=True
     self.debug_time=time.time()
     self.debug_interval_sec=60;
+    self.loiter_degrees = loiter_degrees_DEFAULT;
+    self.loiter_trigger_duration = loiter_trigger_duration_DEFAULT;
+    self.loiter_aircraft_type = loiter_aircraft_type_DEFAULT;
+
+  def configure(self, config_dict):
+    self.loiter_degrees=config_dict.get("alert_loiter_degrees", loiter_degrees_DEFAULT);
+    self.loiter_trigger_duration=config_dict.get("alert_loiter_trigger_duration_sec", loiter_trigger_duration_DEFAULT);
+    self.loiter_aircraft_type=config_dict.get("alert_loiter_aircraft_type", loiter_aircraft_type_DEFAULT);
 
   def add_sample(self,hex_string,lat,lon,time,track):
     nav_record=self.nav_records.get(hex_string);
     if nav_record is None:
-      nav_record=[[],[],[],[],False];
+      nav_record=[[],[],[],[],False,None];
       self.nav_records[hex_string] = nav_record;
       print("loiter_detector.add_sample() adding new hex: %s" % hex_string);
     nav_record[0].append(lat);
@@ -21,7 +33,7 @@ class loiter_detector:
 
     max_time_discontinutiy=20;
     if not is_continuous(nav_record[2],max_time_discontinutiy):
-      nav_record=[[],[],[],[],False];
+      nav_record=[[],[],[],[],False,None];
     
     self.nav_records[hex_string] = nav_record;
 
@@ -47,14 +59,17 @@ class loiter_detector:
     if (nav_record[4]):
       #if we ever detect a loiter, maintain the loiter until we lose the track
       return nav_record;
-    max_time_discontinutiy=20;
-    in_loiter=is_loiter(nav_record[3],nav_record[2],max_time_discontinutiy);
+    max_time_discontinuity=20;
+    in_loiter=is_loiter(nav_record[3],nav_record[2],max_time_discontinuity,self.loiter_degrees,self.loiter_trigger_duration);
     nav_record[4]=in_loiter;
+    if in_loiter:
+      #note the time we first detect the loiter
+      nav_record[5]=nav_record[2][-1];
     self.nav_records[hex_string]=nav_record;
     return nav_record
 
   def reset(self,hex_string):
-    nav_record=[[],[],[],[],False];
+    nav_record=[[],[],[],[],False,None];
     self.nav_records[hex_string] = nav_record;
 
   def purge_missing_hexes(self,active_hexes):

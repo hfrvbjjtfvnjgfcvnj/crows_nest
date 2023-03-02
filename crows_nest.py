@@ -32,6 +32,7 @@ def load_configuration():
   config=json.load(f);
   f.close();
   print(config);
+  loiter_det.configure(config);
 
 def populate_alert_types(cursor):
   global alert_types;
@@ -276,7 +277,7 @@ def perform_detections(timestamp, cursor):
         cursor.execute("INSERT INTO loiter_temp(hex) VALUES (?) ON DUPLICATE KEY UPDATE hex=?",(loiterer.encode(),loiterer.encode()));
       conn.commit();
     queue_notifications(new_notifications,
-      ("select * from (((active_aircraft left join tar1090_db on active_aircraft.hex=tar1090_db.hex) left join icao_type_descriptions on tar1090_db.icao_type_code=icao_type_descriptions.type) ) left join faa_lookup_table on active_aircraft.hex=faa_lookup_table.mode_s_hex_code left join faa_aircraft_type on faa_lookup_table.type_aircraft=faa_aircraft_type.id where exists (SELECT hex FROM loiter_temp where loiter_temp.hex=active_aircraft.hex);"),
+      ("select * from (((active_aircraft left join tar1090_db on active_aircraft.hex=tar1090_db.hex) left join icao_type_descriptions on tar1090_db.icao_type_code=icao_type_descriptions.type) ) left join faa_lookup_table on active_aircraft.hex=faa_lookup_table.mode_s_hex_code left join faa_aircraft_type on faa_lookup_table.type_aircraft=faa_aircraft_type.id where exists (SELECT hex FROM loiter_temp where loiter_temp.hex=active_aircraft.hex)  and icao_type_descriptions.description RLIKE '^[%s]';" % config["alert_loiter_aircraft_type"]),
       "Potential Loitering Aircraft Detected",
       "Potential Loitering Aircraft Detected",
       'loiter');
@@ -284,10 +285,18 @@ def perform_detections(timestamp, cursor):
   #check for intercepting aircraft
   detect_intercepts(new_notifications);
 
+  #check for general aircraft types
+  if (len(config.get("alert_aircraft_type","")) > 0):
+    queue_notifications(new_notifications,
+      ("select * from (((active_aircraft left join tar1090_db on active_aircraft.hex=tar1090_db.hex) left join icao_type_descriptions on tar1090_db.icao_type_code=icao_type_descriptions.type) ) left join faa_lookup_table on active_aircraft.hex=faa_lookup_table.mode_s_hex_code left join faa_aircraft_type on faa_lookup_table.type_aircraft=faa_aircraft_type.id where icao_type_descriptions.description RLIKE '^[%s]';" % config["alert_aircraft_type"]),
+      "Aircraft of Type %s Detected" % config["alert_aircraft_type"],
+      "Aircraft of Type %s Detected" % config["alert_aircraft_type"],
+      'other');
+
   #check for military aircraft
   if (config["alert_military"]):
     queue_notifications(new_notifications,
-      "select * from (((active_aircraft left join tar1090_db on active_aircraft.hex=tar1090_db.hex) left join icao_type_descriptions on tar1090_db.icao_type_code=icao_type_descriptions.type) ) left join faa_lookup_table on active_aircraft.hex=faa_lookup_table.mode_s_hex_code left join faa_aircraft_type on faa_lookup_table.type_aircraft=faa_aircraft_type.id where active_aircraft.hex>='ADF7C8' and active_aircraft.hex<='AFFFFF';",
+      "select * from (((active_aircraft left join tar1090_db on active_aircraft.hex=tar1090_db.hex) left join icao_type_descriptions on tar1090_db.icao_type_code=icao_type_descriptions.type) ) left join faa_lookup_table on active_aircraft.hex=faa_lookup_table.mode_s_hex_code left join faa_aircraft_type on faa_lookup_table.type_aircraft=faa_aircraft_type.id where (active_aircraft.hex>='ADF7C8' and active_aircraft.hex<='AFFFFF') or exists (select hex from mil_records where mil_records.hex=tar1090_db.registration);",
       "Military Aircraft Detected",
       "Military Aircraft Position Acquired",
       'military');

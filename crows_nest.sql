@@ -68,6 +68,10 @@ CREATE OR REPLACE TABLE faa_lookup_table(mode_s_hex_code char(6) PRIMARY KEY, n_
 CREATE OR REPLACE TABLE gov_records (hex char(5) PRIMARY KEY,org varchar(128));
 LOAD DATA INFILE '/opt/crows_nest/GOVT_RECORDS.txt' INTO TABLE gov_records FIELDS TERMINATED BY ',';
 
+-- FAA registration records associated with a 'military entity' - see parser code for futher details
+CREATE OR REPLACE TABLE mil_records (hex char(5) PRIMARY KEY,org varchar(128));
+LOAD DATA INFILE '/opt/crows_nest/MIL_RECORDS.txt' INTO TABLE mil_records FIELDS TERMINATED BY ',';
+
 -- ICAO official type descriptions
 CREATE OR REPLACE TABLE icao_type_descriptions (type VARCHAR(4), description CHAR(3), PRIMARY KEY(type));
 LOAD DATA INFILE '/opt/crows_nest/icao_type_descriptions.csv' INTO TABLE icao_type_descriptions FIELDS TERMINATED BY ',';
