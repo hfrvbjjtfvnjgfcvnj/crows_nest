@@ -68,6 +68,10 @@ CREATE OR REPLACE TABLE faa_lookup_table(mode_s_hex_code char(6) PRIMARY KEY, n_
 CREATE OR REPLACE TABLE gov_records (hex char(5) PRIMARY KEY,org varchar(128));
 LOAD DATA INFILE '/opt/crows_nest/GOVT_RECORDS.txt' INTO TABLE gov_records FIELDS TERMINATED BY ',';
 
+-- FAA registration records associated with a 'military entity' - see parser code for futher details
+CREATE OR REPLACE TABLE mil_records (hex char(5) PRIMARY KEY,org varchar(128));
+LOAD DATA INFILE '/opt/crows_nest/MIL_RECORDS.txt' INTO TABLE mil_records FIELDS TERMINATED BY ',';
+
 -- ICAO official type descriptions
 CREATE OR REPLACE TABLE icao_type_descriptions (type VARCHAR(4), description CHAR(3), PRIMARY KEY(type));
 LOAD DATA INFILE '/opt/crows_nest/icao_type_descriptions.csv' INTO TABLE icao_type_descriptions FIELDS TERMINATED BY ',';
@@ -79,12 +83,16 @@ CREATE OR REPLACE TABLE signal_reception(id INT NOT NULL AUTO_INCREMENT, time DO
 CREATE OR REPLACE TABLE alert_type(id INT PRIMARY KEY, name varchar(15));
 delete from alert_type;
 insert into alert_type(id,name) values(0,"special");
-insert into alert_type(id,name) values(1,"local");
-insert into alert_type(id,name) values(2,"state");
-insert into alert_type(id,name) values(3,"federal");
-insert into alert_type(id,name) values(4,"military");
-insert into alert_type(id,name) values(5,"government");
-insert into alert_type(id,name) values(6,"other");
+insert into alert_type(id,name) values(1,"spook");
+insert into alert_type(id,name) values(2,"loiter");
+insert into alert_type(id,name) values(3,"intercept");
+insert into alert_type(id,name) values(4, "eta");
+insert into alert_type(id,name) values(5,"local");
+insert into alert_type(id,name) values(6,"state");
+insert into alert_type(id,name) values(7,"federal");
+insert into alert_type(id,name) values(8,"military");
+insert into alert_type(id,name) values(9,"government");
+insert into alert_type(id,name) values(10,"other");
 
 -- official FAA registration aircraft types
 CREATE OR REPLACE TABLE faa_aircraft_type(id CHAR, name varchar(30));
@@ -101,7 +109,10 @@ insert into faa_aircraft_type(id,name) values ('H',"hybrid lift");
 insert into faa_aircraft_type(id,name) values ('O',"other");
 
 -- table of aircraft actively being tracked
-CREATE OR REPLACE TABLE active_aircraft(hex CHAR(6), time DOUBLE, seen_pos FLOAT, latitude DOUBLE, longitude DOUBLE, distance FLOAT, bearing INT, PRIMARY KEY(hex));
+CREATE OR REPLACE TABLE active_aircraft(hex CHAR(6), time DOUBLE, seen_pos FLOAT, latitude DOUBLE, longitude DOUBLE, distance FLOAT, bearing INT, first_det_time DOUBLE, speed INT, track INT, altitude INT, PRIMARY KEY(hex));
+
+-- table history of positions of aircraft actively being tracked
+CREATE OR REPLACE TABLE active_aircraft_history(hex CHAR(6), time DOUBLE, seen_pos FLOAT, latitude DOUBLE, longitude DOUBLE, distance FLOAT, bearing INT, speed INT, track INT, altitude INT, PRIMARY KEY(hex,time));
 
 -- list of aircraft we have ever tracked
 CREATE OR REPLACE TABLE detected_aircraft(hex CHAR(6), time DOUBLE, seen_pos FLOAT, PRIMARY KEY(hex));

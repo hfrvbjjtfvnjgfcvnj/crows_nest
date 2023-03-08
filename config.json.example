@@ -3,20 +3,41 @@
   "station_longitude":-23.456789,
   "dump1090_aircraft_path":"/run/dump1090-mutability",
   "dump1090_aircraft_name":"aircraft.json",
+  "dump1090_local_url":"http://dump1090_host/dump1090/gmap.html",
   "pushover_notify": true,
   "pushover_api_key": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
   "pushover_user_key": "xxxxxxxxxxxxxxxxxxxxxxxxxxx",
   "aircraft_expire_seconds": 120,
+  
   "alert_expire_seconds": 600,
+  
   "alert_military": true,
   "alert_government": true,
   "alert_special": true,
+  
   "alert_notifications": true,
+  
   "alert_radius_meters": 25000,
   "alert_without_position": false,
+
+  "alert_loiter": true,
+  "alert_loiter_aircraft_type": "*",
+  "alert_loiter_degrees": 420,
+  "alert_loiter_trigger_duration_sec": 3600,
+ 
+  "alert_eta_seconds": 1200,
+  "alert_eta_radius_meters": 1000,
+  "alert_eta_positions": [],
+  "alert_eta_ceiling_feet": 100000,
+  "alert_eta_aircraft_type": "HTL",
+ 
+  "alert_aircraft_type": "HT",
+  
   "db_username":"xxxxxxxx",
   "db_password":"xxxxxxxx",
   "db_host":"127.0.0.1",
   "db_port":3306,
-  "db_database_name":"crows_nest"
+  "db_database_name":"crows_nest",
+  
+  "adsb_exchange_feed_code":""
 }

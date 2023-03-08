@@ -11,6 +11,8 @@ sed -i 's/  */ /g;s/ *,/,/g;s/\r//g;s/,$//g' /opt/crows_nest/MASTER.txt
 cat /opt/crows_nest/MASTER.txt | cut -f1,7 -d ','  > /opt/crows_nest/OWNER_INDEX.txt
 grep 'DEPT\|DEPARTMENT\|POLICE\|SHERRIF\|COUNTY\|STATE\|CITY OF\|DISTRICT\|ADMINISTRATION\|AGENCY' /opt/crows_nest/OWNER_INDEX.txt | grep -v " LLC\| INC\| BANK\|INSURANCE\|UNIVERSITY\|COLLEGE\|REAL ESTATE\|CLUB\| LLP" | sed 's/ *$//g' > /opt/crows_nest/GOVT_RECORDS.txt
 
+cut -f1,7 -d ',' /opt/crows_nest/MASTER.txt | grep -i ' AIR FORCE\| NAVY\| ARMY\| COAST GUARD' | grep -v 'CLUB\| INC\| LLC\| MUSEUM\|FRIENDS\| FOUNDATION\| CORPS OF ENGINEERS\|COMMEMORATIVE\|ASSOCIATION' > /opt/crows_nest/MIL_RECORDS.txt
+
 pushd "${DIR}" 2>/dev/null 1>/dev/null
 USER="$(grep 'db_username' config.json | cut -f2 -d ":" | sed 's/^"//;s/",$//')"
 CRED="$(grep 'db_password' config.json | cut -f2 -d ":" | sed 's/^"//;s/",$//')"
