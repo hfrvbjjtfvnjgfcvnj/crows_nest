@@ -5,3 +5,7 @@ aircraft.csv
 icao_type_descriptions.csv
 aircraft.json
 icao_aircraft_types.json
+*.txt
+audio
+venv
+__pycache__

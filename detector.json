@@ -1,0 +1,64 @@
+{
+	"fields":["hex","time","seen_pos","latitude","longitude","distance","bearing","first_det_time","speed","track","altitude","registration","icao_type_code","icao_name","description","n_number","type_aircraft","faa_type_name","registrant_name" ],
+	"active":{
+        "query":"select active_aircraft.*,tar1090_db.registration,tar1090_db.icao_type_code,tar1090_db.name,icao_type_descriptions.description,faa_lookup_table.n_number,faa_lookup_table.type_aircraft,faa_aircraft_type.name,faa_master.registrant_name from (((active_aircraft left join tar1090_db on active_aircraft.hex=tar1090_db.hex) left join icao_type_descriptions on tar1090_db.icao_type_code=icao_type_descriptions.type) ) left join faa_lookup_table on active_aircraft.hex=faa_lookup_table.mode_s_hex_code left join faa_aircraft_type on faa_lookup_table.type_aircraft=faa_aircraft_type.id join faa_master on faa_lookup_table.n_number=faa_master.n_number;",
+        "detected_title":"",
+		"position_title":"",
+        "alert_type_name":""
+    },
+	"hex":{
+        "query":"select active_aircraft.*,tar1090_db.registration,tar1090_db.icao_type_code,tar1090_db.name,icao_type_descriptions.description,faa_lookup_table.n_number,faa_lookup_table.type_aircraft,faa_aircraft_type.name,faa_master.registrant_name from (((active_aircraft left join tar1090_db on active_aircraft.hex=tar1090_db.hex) left join icao_type_descriptions on tar1090_db.icao_type_code=icao_type_descriptions.type) ) left join faa_lookup_table on active_aircraft.hex=faa_lookup_table.mode_s_hex_code left join faa_aircraft_type on faa_lookup_table.type_aircraft=faa_aircraft_type.id join faa_master on faa_lookup_table.n_number=faa_master.n_number where active_aircraft.hex = '%s';",
+        "detected_title":"Aircraft Detected",
+		"position_title":"Aircraft Position Acquired",
+        "alert_type_name":""
+    },
+	"loiter":{
+        "query":"select active_aircraft.*,tar1090_db.registration,tar1090_db.icao_type_code,tar1090_db.name,icao_type_descriptions.description,faa_lookup_table.n_number,faa_lookup_table.type_aircraft,faa_aircraft_type.name,faa_master.registrant_name from (((active_aircraft left join tar1090_db on active_aircraft.hex=tar1090_db.hex) left join icao_type_descriptions on tar1090_db.icao_type_code=icao_type_descriptions.type) ) left join faa_lookup_table on active_aircraft.hex=faa_lookup_table.mode_s_hex_code left join faa_aircraft_type on faa_lookup_table.type_aircraft=faa_aircraft_type.id join faa_master on faa_lookup_table.n_number=faa_master.n_number where exists (SELECT hex FROM loiter_temp where loiter_temp.hex=active_aircraft.hex);",
+        "detected_title":"Potential Loitering Aircraft Detected",
+		"position_title":"Potential Loitering Aircraft Position Acquired",
+        "alert_type_name":"loiter"
+    },
+	"type":{
+        "query":"select active_aircraft.*,tar1090_db.registration,tar1090_db.icao_type_code,tar1090_db.name,icao_type_descriptions.description,faa_lookup_table.n_number,faa_lookup_table.type_aircraft,faa_aircraft_type.name,faa_master.registrant_name from (((active_aircraft left join tar1090_db on active_aircraft.hex=tar1090_db.hex) left join icao_type_descriptions on tar1090_db.icao_type_code=icao_type_descriptions.type) ) left join faa_lookup_table on active_aircraft.hex=faa_lookup_table.mode_s_hex_code left join faa_aircraft_type on faa_lookup_table.type_aircraft=faa_aircraft_type.id join faa_master on faa_lookup_table.n_number=faa_master.n_number where icao_type_descriptions.description RLIKE '^[%s]';",
+		"detected_title":"Aircraft of Type %s Detected",
+		"position_title":"Aircraft of Type %s Position Acquired",
+		"alert_type_name":"other"
+	},
+	"military":{
+		"query":"select active_aircraft.*,tar1090_db.registration,tar1090_db.icao_type_code,tar1090_db.name,icao_type_descriptions.description,faa_lookup_table.n_number,faa_lookup_table.type_aircraft,faa_aircraft_type.name,faa_master.registrant_name from (((active_aircraft left join tar1090_db on active_aircraft.hex=tar1090_db.hex) left join icao_type_descriptions on tar1090_db.icao_type_code=icao_type_descriptions.type) ) left join faa_lookup_table on active_aircraft.hex=faa_lookup_table.mode_s_hex_code left join faa_aircraft_type on faa_lookup_table.type_aircraft=faa_aircraft_type.id left join faa_master on faa_lookup_table.n_number=faa_master.n_number  where (active_aircraft.hex>='ADF7C8' and active_aircraft.hex<='AFFFFF') or exists (select hex from mil_records where mil_records.hex=tar1090_db.registration);",
+		"detected_title":"Military Aircraft Detected",
+		"position_title":"Military Aircraft Position Acquired",
+		"alert_type_name":"military"
+	},
+	"special":{
+		"query":"select active_aircraft.*,tar1090_db.registration,tar1090_db.icao_type_code,tar1090_db.name,icao_type_descriptions.description,faa_lookup_table.n_number,faa_lookup_table.type_aircraft,faa_aircraft_type.name,faa_master.registrant_name from (((active_aircraft left join tar1090_db on active_aircraft.hex=tar1090_db.hex) left join icao_type_descriptions on tar1090_db.icao_type_code=icao_type_descriptions.type) ) left join faa_lookup_table on active_aircraft.hex=faa_lookup_table.mode_s_hex_code left join faa_aircraft_type on faa_lookup_table.type_aircraft=faa_aircraft_type.id left join faa_master on faa_lookup_table.n_number=faa_master.n_number join special_aircraft on active_aircraft.hex=special_aircraft.hex;",
+		"detected_title":"Special Alert Aircraft Detected",
+		"position_title":"Special Alert Aircraft Position Acquired",
+		"alert_type_name":"special"
+	},
+	"government":{
+		"query":"select active_aircraft.*,tar1090_db.registration,tar1090_db.icao_type_code,tar1090_db.name,icao_type_descriptions.description,faa_lookup_table.n_number,faa_lookup_table.type_aircraft,faa_aircraft_type.name,faa_master.registrant_name from (((active_aircraft left join tar1090_db on active_aircraft.hex=tar1090_db.hex) left join icao_type_descriptions on tar1090_db.icao_type_code=icao_type_descriptions.type) ) left join faa_lookup_table on active_aircraft.hex=faa_lookup_table.mode_s_hex_code left join faa_aircraft_type on faa_lookup_table.type_aircraft=faa_aircraft_type.id join faa_master on faa_lookup_table.n_number=faa_master.n_number where exists (select hex from gov_records where hex=faa_master.n_number);",
+		"detected_title":"Government Aircraft Position Acquired",
+		"position_title":"Government Aircraft Position Acquired",
+		"alert_type_name":"government"
+	},
+	"intercept":{
+		"query":"select active_aircraft.*,tar1090_db.registration,tar1090_db.icao_type_code,tar1090_db.name,icao_type_descriptions.description,faa_lookup_table.n_number,faa_lookup_table.type_aircraft,faa_aircraft_type.name,faa_master.registrant_name from (((active_aircraft left join tar1090_db on active_aircraft.hex=tar1090_db.hex) left join icao_type_descriptions on tar1090_db.icao_type_code=icao_type_descriptions.type) ) left join faa_lookup_table on active_aircraft.hex=faa_lookup_table.mode_s_hex_code left join faa_aircraft_type on faa_lookup_table.type_aircraft=faa_aircraft_type.id join faa_master on faa_lookup_table.n_number=faa_master.n_number where active_aircraft.hex = '%s';",
+		"detected_title":"",
+		"position_title":"Aircraft On Possible Intercept Course",
+		"alert_type_name":"government"
+	},
+	"sounds_alert_type":{
+		"loiter":"loiter",
+		"spook":"spook"
+	},
+	"sounds_airframe":{
+		"H":"chopper",
+		"T":"chopper"
+	},
+	"sounds_engine":{
+		"J":"fastmover",
+		"T":"turbo_prop",
+		"P":"piston_engine"
+	}
+}
