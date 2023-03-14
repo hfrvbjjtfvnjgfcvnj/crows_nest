@@ -17,6 +17,8 @@ class Detector:
     self.build_field_map();
     self.pending_intercepts={}
     self.call_count=0;
+    self.notifiers=[];
+    self.alert_types={};
 
   def load_data(self,json_file):
     if json_file is None:
@@ -40,6 +42,16 @@ class Detector:
     for field in fields:
       self.field_map[field] = i;
       i=i+1;
+  
+  def populate_alert_types(self,cursor):
+    if len(self.alert_types) > 0:
+      #only run once
+      return
+    print("Loading alert types from database...");
+    cursor.execute('select * from alert_type');
+    for ret in cursor:
+      print("Setting alert type '%s' = '%d" % (ret[1],ret[0]));
+      self.alert_types[ret[1]] = ret[0];
 
   def perform_detections(self,config,timestamp,conn,cursor):
     self.call_count=self.call_count+1;
@@ -48,6 +60,8 @@ class Detector:
     if (self.call_count % config.get("detector_every_n_updates",1) != 0):
       return;
     self.call_count = 0;
+
+    self.populate_alert_types(cursor);
 
     new_notifications=[];
 
@@ -89,7 +103,8 @@ class Detector:
       
     for n in new_notifications:
       #print("NOTIFY: %s\n%s"%(n[0],n[2]));
-      cursor.execute("insert into active_alerts(hex,first_seen,last_seen,alert_type) values(?,?,?,?) ON DUPLICATE KEY UPDATE last_seen=?, alert_type=? ;", (n[0],timestamp,timestamp,alert_types[n[3]],timestamp,alert_types[n[3]]));
+      print(n);
+      cursor.execute("insert into active_alerts(hex,first_seen,last_seen,alert_type) values(?,?,?,?) ON DUPLICATE KEY UPDATE last_seen=?, alert_type=? ;", (n[0],timestamp,timestamp,self.alert_types[n[3]],timestamp,self.alert_types[n[3]]));
       if (config["alert_notifications"]):
         self.do_notification(config,n);
 
@@ -228,9 +243,14 @@ class Detector:
     #print(sound);
     text=self.note_text(config,aircraft,alert_type_name)
     url=self.note_url(config,aircraft)
-    self.pushover_notify(config,title,text,priority,sound,url);
+    
+    for notifier in self.notifiers:
+      notifier(config,title,text,priority,sound,url);
 
-  def note_sound(self,aircraft,alert_type_name):
+  def add_notifier(self,notifier_functor):
+    self.notifiers.append(notifier_functor);
+
+  def note_sound(self,config,aircraft,alert_type_name):
     if aircraft is None:
       return None;
   
@@ -262,19 +282,7 @@ class Detector:
   
     return None;
 
-  def pushover_notify(self,config,title,msg_text,priority,sound,url):
-    po=pushover.Pushover(config["pushover_api_key"]);
-    po.user(config["pushover_user_key"]);
-    msg=po.msg(msg_text);
-    msg.set('title',title);
-    msg.set('priority',priority);
-    if sound is not None:
-      msg.set('sound', sound);
-    if url is not None:
-      msg.set('url', url);
-    return po.send(msg);
-
-  def bearing_to_direction(bearing):
+  def bearing_to_direction(self,bearing):
     while bearing < 0:
       bearing += 360;
     while bearing >= 360:
@@ -292,22 +300,18 @@ class Detector:
     #print(aircraft);
     #print("--------------------")
     model='Unknown';
-    time=datetime.fromtimestamp(aircraft[1]).strftime('%Y-%m-%d %H:%M:%S');
-    distance_miles=aircraft[5]/1609.34;
-    bearing=aircraft[6];
-    bearing_str=self.bearing_to_direction(aircraft[6]);
-    hex=aircraft[0];
-    lat=aircraft[3];
-    lon=aircraft[4];
-    registration='Unknown'
-    operator='Unknown'
-    if (len(aircraft)>=19):
-      model=aircraft[14];
-      registration=aircraft[12];
-      icao_type_description=aircraft[16];
-      faa_type_aircraft=aircraft[21];
-      if (alert_type=='government'):
-        operator=aircraft[23];
+    time=datetime.fromtimestamp(aircraft[self.field_map['time']]).strftime('%Y-%m-%d %H:%M:%S');
+    distance_miles=aircraft[self.field_map['distance']]/1609.34;
+    bearing=aircraft[self.field_map['bearing']];
+    bearing_str=self.bearing_to_direction(aircraft[self.field_map['bearing']]);
+    hex=aircraft[self.field_map['hex']];
+    lat=aircraft[self.field_map['latitude']];
+    lon=aircraft[self.field_map['longitude']];
+    registration=aircraft[self.field_map['registration']];
+    operator=aircraft[self.field_map['registrant_name']];
+    model=aircraft[self.field_map['icao_name']];
+    icao_type_description=aircraft[self.field_map['description']];
+    faa_type_aircraft=aircraft[self.field_map['faa_type_name']];
 
     text="Operator: {}\nTime: {}\nModel: {}\nDistance: {:.2f} miles\nReg: {}\nBearing: {} ({})\nHex Code: {}\nLatitude: {}\nLongitude: {}\nICAO Type: {}\nFAA Type: {}\n{}\n{}\n{}".format(
           operator,

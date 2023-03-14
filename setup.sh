@@ -37,7 +37,7 @@ source /opt/crows_nest/venv/bin/activate
 
 ./update_aircraft_db.sh
 ./update_tar1090-db.sh
-cp *.py *.sh /opt/crows_nest/
+cp *.py *.sh detector.json /opt/crows_nest/
 if [ -f /opt/crows_nest/config.json ] ;
 then
 	echo "Warning: Config file '/opt/crows_nest/config.json' already exists. Not installing a new one"

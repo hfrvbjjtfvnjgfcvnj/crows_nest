@@ -2,22 +2,18 @@ import inotify.adapters;
 import os
 import json
 import mariadb
-import sys
 import pyproj
-import socket
 from datetime import datetime
 import time
-import pushover
 from queue import Queue
 import shutil
-import tempfile
+import importlib.util
 from threading import Thread
 
 from loiter_detector import *
 from detector import Detector
 
 directions=["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
-alert_types={}
 config={}
 old_data={}
 inotify_queue=Queue()
@@ -35,14 +31,6 @@ def load_configuration():
   f.close();
   print(config);
   loiter_det.configure(config);
-
-def populate_alert_types(cursor):
-  global alert_types;
-  print("Loading alert types from database...");
-  cursor.execute('select * from alert_type');
-  for ret in cursor:
-    print("Setting alert type '%s' = '%d" % (ret[1],ret[0]));
-    alert_types[ret[1]] = ret[0];
 
 def load_data(json_file):
   if json_file is None:
@@ -150,7 +138,7 @@ def update_from_json(json_file):
   for aircraft in aircraft_list:
     commit_to_db(timestamp, aircraft);
   clear_expired(); 
-  det.perform_detections(config,cursor,timestamp,cursor);
+  det.perform_detections(config,timestamp,conn,cursor);
   conn.commit();
 
 def _main_inotify():
@@ -169,6 +157,15 @@ def test2():
     update_from_json("aircraft.json");
 
 load_configuration();
+
+notifier_config=config.get('notifiers',None);
+for notifier_def in notifier_config:
+  spec = importlib.util.spec_from_file_location(notifier_def['name'],notifier_def['file']);
+  module = importlib.util.module_from_spec(spec);
+  spec.loader.exec_module(module);
+  det.add_notifier(module.NotifierFunctor());
+
+
 ag_sbs = {};
 ag_time = time.time();
 
@@ -182,8 +179,6 @@ conn=mariadb.connect(
 #conn.autocommit = False
 conn.autocommit = True
 cursor=conn.cursor();
-
-populate_alert_types(cursor);
 
 geo=pyproj.Geod(ellps='WGS84')
 
