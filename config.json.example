@@ -16,7 +16,9 @@
   "alert_special": true,
   
   "alert_notifications": true,
-  
+ 
+  "notifiers":[{"file":"pushover_notifier.py","name":"pushover_notifier"}],
+ 
   "alert_radius_meters": 25000,
   "alert_without_position": false,
 
