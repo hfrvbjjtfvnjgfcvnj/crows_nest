@@ -59,6 +59,6 @@
 	"sounds_engine":{
 		"J":"fastmover",
 		"T":"turbo_prop",
-		"P":"piston_engine"
+		"P":"piston"
 	}
 }
