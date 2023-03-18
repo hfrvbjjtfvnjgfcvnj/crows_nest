@@ -127,3 +127,9 @@ CREATE OR REPLACE TABLE special_aircraft(hex CHAR(6) PRIMARY KEY, alert_type INT
 CREATE OR REPLACE TABLE tar1090_db(hex CHAR(6), registration VARCHAR(25), icao_type_code VARCHAR(4), name VARCHAR(75), PRIMARY KEY(hex));
 LOAD DATA INFILE '/opt/crows_nest/tar1090-db.csv' INTO TABLE tar1090_db FIELDS TERMINATED BY ',';
 
+-- list of labels we find 'interesting'
+CREATE OR REPLACE TABLE interesting_labels(label varchar(50) PRIMARY KEY NOT NULL);
+LOAD DATA INFILE '/opt/crows_nest/interesting_labels.csv' INTO TABLE interesting_labels FIELDS TERMINATED BY ',';
+
+
+
