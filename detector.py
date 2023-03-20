@@ -94,7 +94,16 @@ class Detector:
     if (config["alert_special"]):
       rule=self.rules['special'];
       self.queue_notifications(config,cursor,new_notifications,rule['query'],rule['detected_title'],rule['position_title'],rule['alert_type_name']);
-      
+    
+    #check for know/suspected "spook" (recon/intel) aircraft
+    if (config["alert_spook"]):
+      rule=self.rules('spook');
+      self.queue_notifications(config,cursor,new_notifications,rule['query'],rule['detected_title'],rule['position_title'],rule['alert_type_name']);
+    
+    #check for "interesting" aircraft
+    elif (config["alert_interesting"]): #'spook' is a subset of 'interesting', so don't do both notifications
+      rule=self.rules('interesting');
+      self.queue_notifications(config,cursor,new_notifications,rule['query'],rule['detected_title'],rule['position_title'],rule['alert_type_name']);
 
     #check for government aircraft
     if (config["alert_government"]):
@@ -312,8 +321,15 @@ class Detector:
     model=aircraft[self.field_map['icao_name']];
     icao_type_description=aircraft[self.field_map['description']];
     faa_type_aircraft=aircraft[self.field_map['faa_type_name']];
+    comment=aircraft[self.field_map['comment']];
+    #if we have a comment (ex: 'SPY PLANE')
+    if comment is None:
+      comment="";
+    else:
+      comment="Comment: %s\n"%comment;
 
-    text="Operator: {}\nTime: {}\nModel: {}\nDistance: {:.2f} miles\nReg: {}\nBearing: {} ({})\nHex Code: {}\nLatitude: {}\nLongitude: {}\nICAO Type: {}\nFAA Type: {}\n{}\n{}\n{}".format(
+    text="{}Operator: {}\nTime: {}\nModel: {}\nDistance: {:.2f} miles\nReg: {}\nBearing: {} ({})\nHex Code: {}\nLatitude: {}\nLongitude: {}\nICAO Type: {}\nFAA Type: {}\n{}\n{}\n{}".format(
+          comment,
           operator,
           time,
           model,

@@ -131,5 +131,9 @@ LOAD DATA INFILE '/opt/crows_nest/tar1090-db.csv' INTO TABLE tar1090_db FIELDS T
 CREATE OR REPLACE TABLE interesting_labels(label varchar(50) PRIMARY KEY NOT NULL);
 LOAD DATA INFILE '/opt/crows_nest/interesting_labels.csv' INTO TABLE interesting_labels FIELDS TERMINATED BY ',';
 
+-- list of labels we find 'spooky'
+CREATE OR REPLACE TABLE spooky_labels(label varchar(50) PRIMARY KEY NOT NULL);
+LOAD DATA INFILE '/opt/crows_nest/spooky_labels.csv' INTO TABLE spooky_labels FIELDS TERMINATED BY ',';
+
 
 
