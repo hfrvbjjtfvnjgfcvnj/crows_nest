@@ -97,12 +97,12 @@ class Detector:
     
     #check for know/suspected "spook" (recon/intel) aircraft
     if (config["alert_spook"]):
-      rule=self.rules('spook');
+      rule=self.rules['spook'];
       self.queue_notifications(config,cursor,new_notifications,rule['query'],rule['detected_title'],rule['position_title'],rule['alert_type_name']);
     
     #check for "interesting" aircraft
     elif (config["alert_interesting"]): #'spook' is a subset of 'interesting', so don't do both notifications
-      rule=self.rules('interesting');
+      rule=self.rules['interesting'];
       self.queue_notifications(config,cursor,new_notifications,rule['query'],rule['detected_title'],rule['position_title'],rule['alert_type_name']);
 
     #check for government aircraft

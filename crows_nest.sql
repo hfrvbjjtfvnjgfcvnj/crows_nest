@@ -84,15 +84,16 @@ CREATE OR REPLACE TABLE alert_type(id INT PRIMARY KEY, name varchar(15));
 delete from alert_type;
 insert into alert_type(id,name) values(0,"special");
 insert into alert_type(id,name) values(1,"spook");
-insert into alert_type(id,name) values(2,"loiter");
-insert into alert_type(id,name) values(3,"intercept");
-insert into alert_type(id,name) values(4, "eta");
-insert into alert_type(id,name) values(5,"local");
-insert into alert_type(id,name) values(6,"state");
-insert into alert_type(id,name) values(7,"federal");
-insert into alert_type(id,name) values(8,"military");
-insert into alert_type(id,name) values(9,"government");
-insert into alert_type(id,name) values(10,"other");
+insert into alert_type(id,name) values(2,"interesting");
+insert into alert_type(id,name) values(3,"loiter");
+insert into alert_type(id,name) values(4,"intercept");
+insert into alert_type(id,name) values(5, "eta");
+insert into alert_type(id,name) values(6,"local");
+insert into alert_type(id,name) values(7,"state");
+insert into alert_type(id,name) values(8,"federal");
+insert into alert_type(id,name) values(9,"military");
+insert into alert_type(id,name) values(10,"government");
+insert into alert_type(id,name) values(11,"other");
 
 -- official FAA registration aircraft types
 CREATE OR REPLACE TABLE faa_aircraft_type(id CHAR, name varchar(30));
