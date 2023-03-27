@@ -252,12 +252,11 @@ class Detector:
     if sound is None:
       sound=alert_type_name;
 
-    #print(sound);
     text=self.note_text(config,aircraft,alert_type_name)
     url=self.note_url(config,aircraft)
     
     for notifier in self.notifiers:
-      notifier(config,title,text,priority,sound,url);
+      notifier(config,title,text,priority,alert_type_name,sound,url);
 
   def add_notifier(self,notifier_functor):
     self.notifiers.append(notifier_functor);
@@ -290,7 +289,8 @@ class Detector:
     keys=self.rules['sounds_engine'].keys();
     for key in keys:
       if icao_description[2] == key:
-        self.rules['sounds_engine'][icao_description[2]];
+        sound = self.rules['sounds_engine'][icao_description[2]];
+        return sound
   
     return None;
 
