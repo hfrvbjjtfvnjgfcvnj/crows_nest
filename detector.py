@@ -249,6 +249,9 @@ class Detector:
     #notification sound
     sound=self.note_sound(config,aircraft,alert_type_name);
 
+    if sound is None:
+      sound=alert_type_name;
+
     #print(sound);
     text=self.note_text(config,aircraft,alert_type_name)
     url=self.note_url(config,aircraft)

@@ -8,6 +8,8 @@ import time
 from queue import Queue
 import shutil
 import importlib.util
+import sys
+from pathlib import Path
 from threading import Thread
 
 from loiter_detector import *
@@ -160,10 +162,17 @@ load_configuration();
 
 notifier_config=config.get('notifiers',None);
 for notifier_def in notifier_config:
+  #add plug-in directory to python search path
+  p=Path(notifier_def['file']);
+  directory=str(p.parents[0]);
+  sys.path.append(directory);
+
+  #import the module
   spec = importlib.util.spec_from_file_location(notifier_def['name'],notifier_def['file']);
   module = importlib.util.module_from_spec(spec);
   spec.loader.exec_module(module);
-  det.add_notifier(module.NotifierFunctor());
+  if (notifier_def.get('type') != "dependency"):
+    det.add_notifier(module.NotifierFunctor(config));
 
 
 ag_sbs = {};
