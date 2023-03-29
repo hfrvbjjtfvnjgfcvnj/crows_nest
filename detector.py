@@ -18,6 +18,7 @@ class Detector:
     self.pending_intercepts={}
     self.call_count=0;
     self.notifiers=[];
+    self.trackers=[];
     self.alert_types={};
 
   def load_data(self,json_file):
@@ -117,8 +118,20 @@ class Detector:
       if (config["alert_notifications"]):
         self.do_notification(config,n);
 
+    self.update_trackers(cursor);
+
   def find_active_alert(self,cursor,hex,alert_type_name):
     cursor.execute("select * from active_alerts join alert_type on active_alerts.alert_type=alert_type.id join active_aircraft on active_alerts.hex=active_aircraft.hex where active_alerts.hex=? and alert_type.id <= (select id from alert_type where name=?);",(hex,alert_type_name));
+    return cursor.fetchall();
+
+  def update_trackers(self,cursor):
+    #print("detector.update_trackers()");
+    list_of_aircraft=self.fetch_active_alerts(cursor);
+    for tracker in self.trackers:
+      tracker.track_alert_aircraft(list_of_aircraft,self.field_map);
+
+  def fetch_active_alerts(self,cursor):
+    cursor.execute(self.rules['active_alert']['query'])
     return cursor.fetchall();
 
   def queue_notifications(self,config,cursor,new_notifications,query,detected_title,position_title,alert_type_name):
@@ -260,6 +273,9 @@ class Detector:
 
   def add_notifier(self,notifier_functor):
     self.notifiers.append(notifier_functor);
+  
+  def add_tracker(self,tracker):
+    self.trackers.append(tracker);
 
   def note_sound(self,config,aircraft,alert_type_name):
     if aircraft is None:
