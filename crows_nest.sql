@@ -84,15 +84,16 @@ CREATE OR REPLACE TABLE alert_type(id INT PRIMARY KEY, name varchar(15));
 delete from alert_type;
 insert into alert_type(id,name) values(0,"special");
 insert into alert_type(id,name) values(1,"spook");
-insert into alert_type(id,name) values(2,"loiter");
-insert into alert_type(id,name) values(3,"intercept");
-insert into alert_type(id,name) values(4, "eta");
-insert into alert_type(id,name) values(5,"local");
-insert into alert_type(id,name) values(6,"state");
-insert into alert_type(id,name) values(7,"federal");
-insert into alert_type(id,name) values(8,"military");
-insert into alert_type(id,name) values(9,"government");
-insert into alert_type(id,name) values(10,"other");
+insert into alert_type(id,name) values(2,"interesting");
+insert into alert_type(id,name) values(3,"loiter");
+insert into alert_type(id,name) values(4,"intercept");
+insert into alert_type(id,name) values(5, "eta");
+insert into alert_type(id,name) values(6,"local");
+insert into alert_type(id,name) values(7,"state");
+insert into alert_type(id,name) values(8,"federal");
+insert into alert_type(id,name) values(9,"military");
+insert into alert_type(id,name) values(10,"government");
+insert into alert_type(id,name) values(11,"other");
 
 -- official FAA registration aircraft types
 CREATE OR REPLACE TABLE faa_aircraft_type(id CHAR, name varchar(30));
@@ -126,4 +127,14 @@ CREATE OR REPLACE TABLE special_aircraft(hex CHAR(6) PRIMARY KEY, alert_type INT
 -- table of type reference data from tar1090 database (most useful for foreign or military aircraft)
 CREATE OR REPLACE TABLE tar1090_db(hex CHAR(6), registration VARCHAR(25), icao_type_code VARCHAR(4), name VARCHAR(75), PRIMARY KEY(hex));
 LOAD DATA INFILE '/opt/crows_nest/tar1090-db.csv' INTO TABLE tar1090_db FIELDS TERMINATED BY ',';
+
+-- list of labels we find 'interesting'
+CREATE OR REPLACE TABLE interesting_labels(label varchar(50) PRIMARY KEY NOT NULL);
+LOAD DATA INFILE '/opt/crows_nest/interesting_labels.csv' INTO TABLE interesting_labels FIELDS TERMINATED BY ',';
+
+-- list of labels we find 'spooky'
+CREATE OR REPLACE TABLE spooky_labels(label varchar(50) PRIMARY KEY NOT NULL);
+LOAD DATA INFILE '/opt/crows_nest/spooky_labels.csv' INTO TABLE spooky_labels FIELDS TERMINATED BY ',';
+
+
 

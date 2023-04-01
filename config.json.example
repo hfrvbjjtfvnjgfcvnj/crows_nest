@@ -40,6 +40,7 @@
   "db_host":"127.0.0.1",
   "db_port":3306,
   "db_database_name":"crows_nest",
+  "db_label_table_name":"aircraft_labels",
   
   "adsb_exchange_feed_code":""
 }
