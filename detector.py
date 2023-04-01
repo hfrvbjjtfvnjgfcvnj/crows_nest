@@ -18,6 +18,7 @@ class Detector:
     self.pending_intercepts={}
     self.call_count=0;
     self.notifiers=[];
+    self.trackers=[];
     self.alert_types={};
 
   def load_data(self,json_file):
@@ -117,8 +118,20 @@ class Detector:
       if (config["alert_notifications"]):
         self.do_notification(config,n);
 
+    self.update_trackers(cursor);
+
   def find_active_alert(self,cursor,hex,alert_type_name):
     cursor.execute("select * from active_alerts join alert_type on active_alerts.alert_type=alert_type.id join active_aircraft on active_alerts.hex=active_aircraft.hex where active_alerts.hex=? and alert_type.id <= (select id from alert_type where name=?);",(hex,alert_type_name));
+    return cursor.fetchall();
+
+  def update_trackers(self,cursor):
+    #print("detector.update_trackers()");
+    list_of_aircraft=self.fetch_active_alerts(cursor);
+    for tracker in self.trackers:
+      tracker.track_alert_aircraft(list_of_aircraft,self.field_map);
+
+  def fetch_active_alerts(self,cursor):
+    cursor.execute(self.rules['active_alert']['query'])
     return cursor.fetchall();
 
   def queue_notifications(self,config,cursor,new_notifications,query,detected_title,position_title,alert_type_name):
@@ -249,15 +262,20 @@ class Detector:
     #notification sound
     sound=self.note_sound(config,aircraft,alert_type_name);
 
-    #print(sound);
+    if sound is None:
+      sound=alert_type_name;
+
     text=self.note_text(config,aircraft,alert_type_name)
     url=self.note_url(config,aircraft)
     
     for notifier in self.notifiers:
-      notifier(config,title,text,priority,sound,url);
+      notifier(config,title,text,priority,alert_type_name,sound,url);
 
   def add_notifier(self,notifier_functor):
     self.notifiers.append(notifier_functor);
+  
+  def add_tracker(self,tracker):
+    self.trackers.append(tracker);
 
   def note_sound(self,config,aircraft,alert_type_name):
     if aircraft is None:
@@ -287,7 +305,8 @@ class Detector:
     keys=self.rules['sounds_engine'].keys();
     for key in keys:
       if icao_description[2] == key:
-        self.rules['sounds_engine'][icao_description[2]];
+        sound = self.rules['sounds_engine'][icao_description[2]];
+        return sound
   
     return None;
 

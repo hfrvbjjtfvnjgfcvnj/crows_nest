@@ -2,10 +2,10 @@
 import pushover
 
 class NotifierFunctor:
-  def __init__(self):
+  def __init__(self,config):
     pass
   
-  def __call__(self,config,title,msg_text,priority,sound,url):
+  def __call__(self,config,title,msg_text,priority,alert_type_name,sound,url):
     po=pushover.Pushover(config["pushover_api_key"]);
     po.user(config["pushover_user_key"]);
     msg=po.msg(msg_text);
