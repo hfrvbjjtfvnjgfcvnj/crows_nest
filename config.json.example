@@ -1,37 +1,99 @@
 {
+  "data_log_enabled":false,
   "station_latitude":12.345678,
   "station_longitude":-23.456789,
   "dump1090_aircraft_path":"/run/dump1090-mutability",
   "dump1090_aircraft_name":"aircraft.json",
   "dump1090_local_url":"http://dump1090_host/dump1090/gmap.html",
+
   "pushover_notify": true,
   "pushover_api_key": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
   "pushover_user_key": "xxxxxxxxxxxxxxxxxxxxxxxxxxx",
   "aircraft_expire_seconds": 120,
   
+  "plugin_path":"/opt/crows_nest/plugins",
+
+  "notifiers":[
+	  {"file":"pushover_notifier.py","name":"pushover_notifier"},
+	  {"file":"plugins/tak_notifier/tak_notifier.py","name":"tak_notifier"}],
+
+  "trackers":[
+	  {"file":"null_tracker.py","name":"null_tracker"},
+	  {"file":"plugins/tak_notifier/tak_tracker.py","name":"tak_tracker"}],
+
+  "tak_notifier_alert_on":["loiter","spook","government","military"],
+  "tak_notifier_callsign":"CROWS_NEST",
+  "tak_server_config": {
+	  "PYTAK_TLS_CLIENT_CERT":"/path/to/client.pem", 
+	  "PYTAK_TLS_CLIENT_KEY":"/path/to/client.key",
+	  "PYTAK_TLS_CLIENT_CAFILE":"/path/to/ca-trusted.pem", 
+	  "PYTAK_TLS_DONT_CHECK_HOSTNAME":"1", 
+	  "COT_URL": "tls://tak_server_host:8089"},
+  "tak_tracker":{
+    "update_interval_seconds":10,
+    "metadata_update_interval_seconds":12,
+	  "attitude_map":{
+		  "loiter":"s",
+		  "government":"n",
+		  "military":"f",
+		  "spook":"s"
+	  },
+	  "range_rings_distance_meters":20000,
+	  "range_rings_count":5,
+	  "exclusion_zone_rings_enabled":true,
+	  "eta_rings_enabled":true,
+	  "feature_colors":{
+		"station_range_rings":{
+			"color":"FF00AA00",
+			"fill_color":"00000000",
+			"stroke_weight":1
+		},
+		"exclusion_zone_range_rings":{
+			"color":"FF888888",
+			"fill_color":"00000000",
+			"stroke_weight":1
+		},
+		"eta_range_rings":{
+			"color":"FFFFFF00",
+			"fill_color":"00000000",
+			"stroke_weight":1
+		}
+	  }
+  },
+
+  "detector_every_n_updates":5,
+
+  "aircraft_expire_seconds": 120,
+  
   "alert_expire_seconds": 600,
   
-  "alert_military": true,
+  "alert_military": false,
   "alert_government": true,
   "alert_special": true,
+  "alert_spook": true,
+  "alert_interesting":true,
   
   "alert_notifications": true,
- 
-  "notifiers":[{"file":"pushover_notifier.py","name":"pushover_notifier"}],
- 
-  "alert_radius_meters": 25000,
+  
+  "alert_radius_meters": 300000,
   "alert_without_position": false,
 
   "alert_loiter": true,
-  "alert_loiter_aircraft_type": "*",
+  "alert_loiter_aircraft_type": "HTL",
   "alert_loiter_degrees": 420,
   "alert_loiter_trigger_duration_sec": 3600,
+  "alert_loiter_exclusions":[
+    {"name":"MadeUpAirport", "enabled": true, "latitude":32.1098765, "longitude":-23.4567890, "radius_meters":3000.0}],
  
   "alert_eta_seconds": 1200,
   "alert_eta_radius_meters": 1000,
-  "alert_eta_positions": [],
+  "alert_eta_station_position":true,
+  "alert_eta_positions": [
+	  {"name":"SecretBase", "enabled": true, "latitude":13.243547, "longitude":-82.7234523, "radius_meters":1000 }
+  ],
   "alert_eta_ceiling_feet": 100000,
   "alert_eta_aircraft_type": "HTL",
+  "alert_eta_delay_filter_sec": 10,
  
   "alert_aircraft_type": "HT",
   
