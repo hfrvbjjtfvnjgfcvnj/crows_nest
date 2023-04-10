@@ -15,5 +15,9 @@ class NotifierFunctor:
       msg.set('sound', sound);
     if url is not None:
       msg.set('url', url);
-    return po.send(msg);
+    try:
+        resp=po.send(msg);
+    except:
+        resp=""
+    return resp;
 
