@@ -1,5 +1,6 @@
 from loiter import *
 import time
+import pyproj
 
 loiter_degrees_DEFAULT=360;
 loiter_trigger_duration_DEFAULT=9999999;
@@ -14,13 +15,29 @@ class loiter_detector:
     self.loiter_degrees = loiter_degrees_DEFAULT;
     self.loiter_trigger_duration = loiter_trigger_duration_DEFAULT;
     self.loiter_aircraft_type = loiter_aircraft_type_DEFAULT;
+    self.geo=pyproj.Geod(ellps='WGS84')
 
   def configure(self, config_dict):
     self.loiter_degrees=config_dict.get("alert_loiter_degrees", loiter_degrees_DEFAULT);
     self.loiter_trigger_duration=config_dict.get("alert_loiter_trigger_duration_sec", loiter_trigger_duration_DEFAULT);
     self.loiter_aircraft_type=config_dict.get("alert_loiter_aircraft_type", loiter_aircraft_type_DEFAULT);
+    self.loiter_exclusions=config_dict.get("alert_loiter_exclusions",[]);
+
+  def exclude_sample(self,plat,plon):
+    for exclusion in self.loiter_exclusions:
+      if exclusion["enabled"] == False:
+        continue;
+      elat=exclusion["latitude"];
+      elon=exclusion["longitude"];
+      radius=exclusion["radius_meters"];
+      proj_bearing,proj_back_azimuth,proj_distance_m = self.geo.inv(elat, elon, plon, plat);
+      if proj_distance_m < radius:
+        return True
+    return False
 
   def add_sample(self,hex_string,lat,lon,time,track):
+    if self.exclude_sample(lat,lon):
+      return
     nav_record=self.nav_records.get(hex_string);
     if nav_record is None:
       nav_record=[[],[],[],[],False,None];

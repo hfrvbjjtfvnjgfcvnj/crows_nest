@@ -4,6 +4,7 @@ import json
 from datetime import datetime
 import pyproj
 import pushover
+import copy
 
 from loiter_detector import *
 
@@ -20,6 +21,7 @@ class Detector:
     self.notifiers=[];
     self.trackers=[];
     self.alert_types={};
+    self.intercept_positions=[];
 
   def load_data(self,json_file):
     if json_file is None:
@@ -169,22 +171,31 @@ class Detector:
           new_notifications.append((aircraft[0],position_title,aircraft,alert_type_name));
 
   def detect_intercepts(self,config,cursor,new_notifications):
-    positions=config.get("alert_eta_posititions", []);
-    if len(positions) == 0:
-      station_lat=config["station_latitude"];
-      station_lon=config["station_longitude"];
-      positions.append([station_lat,station_lon]);
-    for pos in positions:
-      self.detect_intercepts_at(config,cursor,new_notifications,pos[0],pos[1]);
+    if (len(self.intercept_positions) == 0):
+      self.intercept_positions=copy.deepcopy(config.get("alert_eta_positions", []));
+      if config.get("alert_eta_station_position",False):
+        pos={};
+        pos["latitude"] = config["station_latitude"];
+        pos["longitude"] = config["station_longitude"];
+        #we dont "need" these, but they are added for consistency
+        pos["enabled"] = True;
+        pos["name"] = "station";
+        pos["radius_meters"] = config["alert_eta_radius_meters"];
+        self.intercept_positions.append(pos);
+    for pos in self.intercept_positions:
+      self.detect_intercepts_at(config,cursor,new_notifications,pos);
   
-  def detect_intercepts_at(self,config,cursor,new_notifications,eta_lat,eta_lon):
+  def detect_intercepts_at(self,config,cursor,new_notifications,pos):
+    eta_lat=pos["latitude"];
+    eta_lon=pos["longitude"];
     rows=[]
     rule=self.rules['active'];
     cursor.execute(rule['query']);
     rows=cursor.fetchall();
     time_limit=600;
     time_step=15;
-    alert_radius_m=config["alert_eta_radius_meters"];
+    
+    alert_radius_m=pos["radius_meters"];
     still_intercepting=[]
     for aircraft in rows:
       lat=aircraft[self.field_map['latitude']];
