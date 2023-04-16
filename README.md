@@ -12,9 +12,24 @@ Package includes utility scripts for updating the Crows Nest internal aircraft d
 
 Crow's Nest is envisioned to be a real-time alert system for local ADS-B receiver data. Crow's Nest actively monitors the aircraft detected via dump1090-mutability and compares the ICAO hex codes to a local database. Alerts can be configured for any combination of military aircraft, aircraft registered to government organizations, and/or "special" aircraft designated by the user (ex: notification when a buddy's NXXXXX flies by).
 
-## Vision
+The goal is to provide a flexible and extensible toolbox for automatically filtering and whittling down a cacophony of ADS-B data into actionable snippets.
 
-Current implementation utilizes [pushover](https://pushover.net) notifications. In the future I want to expand to enable additional notification options. I particularly want to explore options for local alert notifications (via audio or radio) without the need for a third-party service.
+## Technical Approach
+
+Development has a taken a "breadth-first" approach to getting an assortment of features enabled to explore what is possible and what is actually useful. Every attempt has been made to expose as many options as configuration settings as possible to allow tuning the internal algorithms for the individual user's situation.
+
+Crows Nest currently supports two plug-in interfaces for collaborative expansion:
+1) Notifiers - Plug-ins that get called when a new aircraft detection (matching the user's configuration settings) is made.
+2) Trackers - Plug-ins that get called periodically and are provided updated tracking information on previously detected and alerted aircraft.
+
+## Available Plug-ins
+Notifiers
+- pushover_notifier (built-in) - Utilizes [pushover](https://pushover.net) cloud-based push notifications. This allows sending push notifications to mobile devices, and is included with Crow's Nest as an example Notifier.
+- [tak_notifier](https://github.com/hfrvbjjtfvnjgfcvnj/crows_nest-tak_notifier) - Forwards alert notifications to a TAK server as a geochat message.
+- [festival_notifier](https://github.com/hfrvbjjtfvnjgfcvnj/crows_nest-festival_notifier) - Utilizes the FOSS [festival](http://festvox.org/festival/) library to generate audio notifications via text-to-speech synthesis. Generated audio files can then forwarded to another host for audio playback via loudspeaker or transmitted via radio.
+
+Trackers
+- [tak_tracker](https://github.com/hfrvbjjtfvnjgfcvnj/crows_nest-tak_notifier) - Implemented along side tak_notifier. Automatically generates CoT PLI data for tracked alert aircraft and forwards those CoT to a TAK server for distribution.
 
 ## Getting Started
 
