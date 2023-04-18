@@ -22,6 +22,24 @@ Crows Nest currently supports two plug-in interfaces for collaborative expansion
 1) Notifiers - Plug-ins that get called when a new aircraft detection (matching the user's configuration settings) is made.
 2) Trackers - Plug-ins that get called periodically and are provided updated tracking information on previously detected and alerted aircraft.
 
+## Current Detection Criteria (details are configurable)
+
+- Military Aircraft
+- Government (Non-Military) Aircraft
+- Loitering aircraft (determined via track analysis) (filterable by type)
+- ICAO Aircraft Type (ex: Helicopter, Tilt-rotor)
+- By registration
+- By community comment (ex: community identified spy aircraft)
+- Possible "intercept" course within N meters within M seconds (configurable for any number of positions) (filterable by type).
+
+## Data Sources
+
+- FAA Database - [https://registry.faa.gov/database/ReleasableAircraft.zip](https://registry.faa.gov/database/ReleasableAircraft.zip)
+- tar1090-db - [https://github.com/wiedehopf/tar1090-db](https://github.com/wiedehopf/tar1090-db)
+
+Bash scripts are provided to automatically update and import these databases into Crows Nest. These scripts can be re-run occasionally (ex: via cron job) to refresh the internal database.
+TODO - Improve import process to provide finer categorization of aircraft (ex: law enforcement organizations vs scientific organizations)
+
 ## Available Plug-ins
 Notifiers
 - pushover_notifier (built-in) - Utilizes [pushover](https://pushover.net) cloud-based push notifications. This allows sending push notifications to mobile devices, and is included with Crow's Nest as an example Notifier.
