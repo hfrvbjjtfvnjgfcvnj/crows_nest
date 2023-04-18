@@ -26,10 +26,18 @@ Crows Nest currently supports two plug-in interfaces for collaborative expansion
 Notifiers
 - pushover_notifier (built-in) - Utilizes [pushover](https://pushover.net) cloud-based push notifications. This allows sending push notifications to mobile devices, and is included with Crow's Nest as an example Notifier.
 - [tak_notifier](https://github.com/hfrvbjjtfvnjgfcvnj/crows_nest-tak_notifier) - Forwards alert notifications to a TAK server as a geochat message.
+
+![chat](https://user-images.githubusercontent.com/70991949/232652803-826d554c-c38f-44b4-82c3-ff12b7598ccc.png)
+
 - [festival_notifier](https://github.com/hfrvbjjtfvnjgfcvnj/crows_nest-festival_notifier) - Utilizes the FOSS [festival](http://festvox.org/festival/) library to generate audio notifications via text-to-speech synthesis. Generated audio files can then forwarded to another host for audio playback via loudspeaker or transmitted via radio.
+
 
 Trackers
 - [tak_tracker](https://github.com/hfrvbjjtfvnjgfcvnj/crows_nest-tak_notifier) - Implemented along side tak_notifier. Automatically generates CoT PLI data for tracked alert aircraft and forwards those CoT to a TAK server for distribution.
+
+![multiple_friendly](https://user-images.githubusercontent.com/70991949/232652807-2c60931f-8fa9-409c-87bf-e4dc4aa80f54.png)
+![multiple_friendly_2](https://user-images.githubusercontent.com/70991949/232652808-27fef11c-ac6b-42fa-917d-879c3547caa3.png)
+
 
 ## Getting Started
 
