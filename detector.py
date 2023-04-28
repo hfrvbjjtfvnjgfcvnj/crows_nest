@@ -196,20 +196,23 @@ class Detector:
     time_step=15;
     
     alert_radius_m=pos["radius_meters"];
-    still_intercepting=[]
+    latest_time=0;
     for aircraft in rows:
       lat=aircraft[self.field_map['latitude']];
       lon=aircraft[self.field_map['longitude']];
       speed_knots=aircraft[self.field_map['speed']];
       track=aircraft[self.field_map['track']];
       icao_type_description=aircraft[self.field_map['description']];
+      time=aircraft[self.field_map['time']];
+      if (time > latest_time):
+          latest_time=time;
       if (lat is None) or (lon is None) or (speed_knots is None) or (track is None):
         continue;
 
       if icao_type_description is not None:
         #get ICAO code (ex: L2J, H1T, etc) and extract first character as airframe type
         typecode=icao_type_description[0];
-        typefilter=config.get("alert_aircraft_type","all");
+        typefilter=config.get("alert_eta_aircraft_type","all");
 
         #if this type doesn't match the filter, skip the aircraft
         #"" and "all" match all codes
@@ -233,7 +236,7 @@ class Detector:
 
           if (proj_distance_m < alert_radius_m):
             hex=aircraft[self.field_map['hex']];
-            
+           
             #lookup a previous pending detection
             previous_det=self.pending_intercepts.get(hex);
 
@@ -241,23 +244,37 @@ class Detector:
             #if 'alert_eta_delay_filter_sec' is configured for 0 delay, or the current intercepting detection time exceeds 'alert_eta_delay_filter_sec', queue the notification
             if (config["alert_eta_delay_filter_sec"] <= 0) or ((previous_det is not None) and (aircraft[self.field_map['time']] > previous_det[0] + config['alert_eta_delay_filter_sec'])):
               self.queue_notifications(config,cursor,new_notifications,rule['query']%aircraft[self.field_map['hex']],rule['detected_title'],rule['position_title'],rule['alert_type_name']);
+            elif previous_det is not None:
+              #if we have a pending intercept, note it
+              t0=previous_det[0];
+              t1=aircraft[self.field_map['time']];
+              dt=t1-t0;
+              df=config['alert_eta_delay_filter_sec'];
+              #print("PENDING INTERCEPT: %s - t0=%d t1=%d dt=%d df=%d"%(hex,t0,t1,dt,df));
+              pending=list(self.pending_intercepts[hex]);
+              pending[5]=aircraft[self.field_map['time']];
+              pending=tuple(pending);
+              self.pending_intercepts[hex]=pending
             elif previous_det is None:
-              #if there is no previous notification, add a pending one
-              self.pending_intercepts[hex]=(aircraft[self.field_map['time']],rule['query']%aircraft[self.field_map['hex']],rule['detected_title'],rule['position_title'],rule['alert_type_name']);
+              #if there is no previous notification, add a pending 
+              #print("ADDING PENDING INTERCEPT: %s @ %d"%(hex,aircraft[self.field_map['time']]));
+              self.pending_intercepts[hex]=(aircraft[self.field_map['time']],rule['query']%aircraft[self.field_map['hex']],rule['detected_title'],rule['position_title'],rule['alert_type_name'],aircraft[self.field_map['time']]);
 
             #keep track of the pending aircraft that are 'still' on intercept courses so we can cleanup pending_intercepts
-            still_intercepting.append(hex);
             break;
     
     #cleanup pending_intercepts to remove any records of aircraft no longer on intercept courses
     keys = self.pending_intercepts.keys();
     purge=[]
-    #build a purge list of keys not in the 'still_intercepting' list
+    
     for key in keys:
-      if key not in still_intercepting:
+      #if key not in still_intercepting:
+      if self.pending_intercepts[key][5] + config['alert_eta_delay_filter_sec'] < latest_time - 10:
+        #print("EXPIRING %s time=%d delay=%d limit=%d"%(key,self.pending_intercepts[key][5],config['alert_eta_delay_filter_sec'],latest_time+10));
         purge.append(key);
     #remove keys in purge list
     for key in purge:
+      #print("POPPING: %s"%key)
       self.pending_intercepts.pop(key);
 
   def do_notification(self,config,data):
