@@ -62,7 +62,7 @@ class Detector:
     self.ignore_operators=[];
     cursor.execute('select * from ignore_registrants');
     for ret in cursor:
-      self.ignore_operators.append(ret);
+      self.ignore_operators.append(ret[0]);
 
   def perform_detections(self,config,timestamp,conn,cursor):
     self.call_count=self.call_count+1;
@@ -145,6 +145,17 @@ class Detector:
     cursor.execute(self.rules['active_alert']['query'])
     return cursor.fetchall();
 
+  def should_ignore_operator(self,operator):
+    #check against ignore list and ignore the aircraft if the operator is on the ignore list
+    should_ignore=False;
+    if operator is not None:
+      close_to=get_close_matches(operator,self.ignore_operators,cutoff=0.55);
+      if close_to is not None and len(close_to) > 0:
+        #print("IGNORING: '%s' due to '%s'"%(operator,close_to[0]));
+        return True
+      #print("ALLOWING: '%s'"%operator);
+    return False
+
   def queue_notifications(self,config,cursor,new_notifications,query,detected_title,position_title,alert_type_name):
     #check for aircraft
     rows=[]
@@ -167,19 +178,8 @@ class Detector:
       #pull aircraft operator to test against filters
       operator=aircraft[self.field_map['registrant_name']];
 
-      #check against ignore list and ignore the aircraft if the operator is on the ignore list
-      should_ignore=False;
-      if operator is not None:
-        close_to=get_close_matches(operator,self.ignore_operators,cutoff=0.55);
-        if close_to is not None and len(close_to) > 0:
-          print("IGNORING: '%s' due to '%s'"%(operator,close_to[0]));
-          continue;
-      #for ignore_ in self.ignore_operators:
-      #  if operator in ignore_:
-      #    should_ignore=True;
-      #    break;
-      #if should_ignore:
-      #  continue;
+      if (self.should_ignore_operator(operator)):
+        continue;
 
       #does this detection have a position?
       has_position=((lat is not None) and (lon is not None) and (distance is not None));
@@ -231,6 +231,9 @@ class Detector:
       track=aircraft[self.field_map['track']];
       icao_type_description=aircraft[self.field_map['description']];
       time=aircraft[self.field_map['time']];
+      operator=aircraft[self.field_map['registrant_name']];
+      if (self.should_ignore_operator(operator)):
+          continue;
       if (time > latest_time):
           latest_time=time;
       if (lat is None) or (lon is None) or (speed_knots is None) or (track is None):
