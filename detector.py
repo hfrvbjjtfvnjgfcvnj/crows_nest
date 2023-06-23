@@ -58,6 +58,17 @@ class Detector:
       print("Setting alert type '%s' = '%d" % (ret[1],ret[0]));
       self.alert_types[ret[1]] = ret[0];
 
+  def populate_intercept_positions(self,config):
+    self.intercept_positions=copy.deepcopy(config.get("alert_eta_positions", []));
+    if config.get("alert_eta_station_position",False):
+      pos={};
+      pos["latitude"] = config["station_latitude"];
+      pos["longitude"] = config["station_longitude"];
+      pos["enabled"] = True;
+      pos["name"] = "station";
+      pos["radius_meters"] = config["alert_eta_radius_meters"];
+      self.intercept_positions.append(pos);
+
   def populate_ignore_operators(self,cursor):
     self.ignore_operators=[];
     cursor.execute('select * from ignore_registrants');
@@ -74,6 +85,7 @@ class Detector:
 
     self.populate_alert_types(cursor);
     self.populate_ignore_operators(cursor);
+    self.populate_intercept_positions(config);
 
     new_notifications=[];
 
@@ -197,17 +209,6 @@ class Detector:
           new_notifications.append((aircraft[0],position_title,aircraft,alert_type_name));
 
   def detect_intercepts(self,config,cursor,new_notifications):
-    if (len(self.intercept_positions) == 0):
-      self.intercept_positions=copy.deepcopy(config.get("alert_eta_positions", []));
-      if config.get("alert_eta_station_position",False):
-        pos={};
-        pos["latitude"] = config["station_latitude"];
-        pos["longitude"] = config["station_longitude"];
-        #we dont "need" these, but they are added for consistency
-        pos["enabled"] = True;
-        pos["name"] = "station";
-        pos["radius_meters"] = config["alert_eta_radius_meters"];
-        self.intercept_positions.append(pos);
     for pos in self.intercept_positions:
       self.detect_intercepts_at(config,cursor,new_notifications,pos);
   
