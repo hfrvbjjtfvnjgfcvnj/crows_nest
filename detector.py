@@ -7,6 +7,7 @@ import pushover
 import copy
 
 from loiter_detector import *
+from difflib import get_close_matches
 
 directions=["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
 
@@ -22,6 +23,7 @@ class Detector:
     self.trackers=[];
     self.alert_types={};
     self.intercept_positions=[];
+    self.ignore_operators=[];
 
   def load_data(self,json_file):
     if json_file is None:
@@ -56,6 +58,23 @@ class Detector:
       print("Setting alert type '%s' = '%d" % (ret[1],ret[0]));
       self.alert_types[ret[1]] = ret[0];
 
+  def populate_intercept_positions(self,config):
+    self.intercept_positions=copy.deepcopy(config.get("alert_eta_positions", []));
+    if config.get("alert_eta_station_position",False):
+      pos={};
+      pos["latitude"] = config["station_latitude"];
+      pos["longitude"] = config["station_longitude"];
+      pos["enabled"] = True;
+      pos["name"] = "station";
+      pos["radius_meters"] = config["alert_eta_radius_meters"];
+      self.intercept_positions.append(pos);
+
+  def populate_ignore_operators(self,cursor):
+    self.ignore_operators=[];
+    cursor.execute('select * from ignore_registrants');
+    for ret in cursor:
+      self.ignore_operators.append(ret[0]);
+
   def perform_detections(self,config,timestamp,conn,cursor):
     self.call_count=self.call_count+1;
     #a configurable 'frequency' for how often (as a number of calls), this function actually checks the DB
@@ -65,6 +84,8 @@ class Detector:
     self.call_count = 0;
 
     self.populate_alert_types(cursor);
+    self.populate_ignore_operators(cursor);
+    self.populate_intercept_positions(config);
 
     new_notifications=[];
 
@@ -136,6 +157,17 @@ class Detector:
     cursor.execute(self.rules['active_alert']['query'])
     return cursor.fetchall();
 
+  def should_ignore_operator(self,operator):
+    #check against ignore list and ignore the aircraft if the operator is on the ignore list
+    should_ignore=False;
+    if operator is not None:
+      close_to=get_close_matches(operator,self.ignore_operators,cutoff=0.55);
+      if close_to is not None and len(close_to) > 0:
+        #print("IGNORING: '%s' due to '%s'"%(operator,close_to[0]));
+        return True
+      #print("ALLOWING: '%s'"%operator);
+    return False
+
   def queue_notifications(self,config,cursor,new_notifications,query,detected_title,position_title,alert_type_name):
     #check for aircraft
     rows=[]
@@ -155,6 +187,12 @@ class Detector:
       #is this a new detection without an existing alert?
       is_new_alert=(len(active_alert)==0);
 
+      #pull aircraft operator to test against filters
+      operator=aircraft[self.field_map['registrant_name']];
+
+      if (self.should_ignore_operator(operator)):
+        continue;
+
       #does this detection have a position?
       has_position=((lat is not None) and (lon is not None) and (distance is not None));
 
@@ -171,23 +209,13 @@ class Detector:
           new_notifications.append((aircraft[0],position_title,aircraft,alert_type_name));
 
   def detect_intercepts(self,config,cursor,new_notifications):
-    if (len(self.intercept_positions) == 0):
-      self.intercept_positions=copy.deepcopy(config.get("alert_eta_positions", []));
-      if config.get("alert_eta_station_position",False):
-        pos={};
-        pos["latitude"] = config["station_latitude"];
-        pos["longitude"] = config["station_longitude"];
-        #we dont "need" these, but they are added for consistency
-        pos["enabled"] = True;
-        pos["name"] = "station";
-        pos["radius_meters"] = config["alert_eta_radius_meters"];
-        self.intercept_positions.append(pos);
     for pos in self.intercept_positions:
       self.detect_intercepts_at(config,cursor,new_notifications,pos);
   
   def detect_intercepts_at(self,config,cursor,new_notifications,pos):
     eta_lat=pos["latitude"];
     eta_lon=pos["longitude"];
+    eta_name=pos["name"];
     rows=[]
     rule=self.rules['active'];
     cursor.execute(rule['query']);
@@ -196,20 +224,26 @@ class Detector:
     time_step=15;
     
     alert_radius_m=pos["radius_meters"];
-    still_intercepting=[]
+    latest_time=0;
     for aircraft in rows:
       lat=aircraft[self.field_map['latitude']];
       lon=aircraft[self.field_map['longitude']];
       speed_knots=aircraft[self.field_map['speed']];
       track=aircraft[self.field_map['track']];
       icao_type_description=aircraft[self.field_map['description']];
+      time=aircraft[self.field_map['time']];
+      operator=aircraft[self.field_map['registrant_name']];
+      if (self.should_ignore_operator(operator)):
+          continue;
+      if (time > latest_time):
+          latest_time=time;
       if (lat is None) or (lon is None) or (speed_knots is None) or (track is None):
         continue;
 
       if icao_type_description is not None:
         #get ICAO code (ex: L2J, H1T, etc) and extract first character as airframe type
         typecode=icao_type_description[0];
-        typefilter=config.get("alert_aircraft_type","all");
+        typefilter=config.get("alert_eta_aircraft_type","all");
 
         #if this type doesn't match the filter, skip the aircraft
         #"" and "all" match all codes
@@ -233,31 +267,45 @@ class Detector:
 
           if (proj_distance_m < alert_radius_m):
             hex=aircraft[self.field_map['hex']];
-            
+           
             #lookup a previous pending detection
             previous_det=self.pending_intercepts.get(hex);
 
             #config 'alert_eta_delay_filter_sec' represents how long an aircaft must be on an 'intercept' course before alerting
             #if 'alert_eta_delay_filter_sec' is configured for 0 delay, or the current intercepting detection time exceeds 'alert_eta_delay_filter_sec', queue the notification
             if (config["alert_eta_delay_filter_sec"] <= 0) or ((previous_det is not None) and (aircraft[self.field_map['time']] > previous_det[0] + config['alert_eta_delay_filter_sec'])):
-              self.queue_notifications(config,cursor,new_notifications,rule['query']%aircraft[self.field_map['hex']],rule['detected_title'],rule['position_title'],rule['alert_type_name']);
+              self.queue_notifications(config,cursor,new_notifications,rule['query']%aircraft[self.field_map['hex']],rule['detected_title'],"%s - %s"%(eta_name,rule['position_title']),rule['alert_type_name']);
+            elif previous_det is not None:
+              #if we have a pending intercept, note it
+              t0=previous_det[0];
+              t1=aircraft[self.field_map['time']];
+              dt=t1-t0;
+              df=config['alert_eta_delay_filter_sec'];
+              #print("PENDING INTERCEPT: %s - t0=%d t1=%d dt=%d df=%d"%(hex,t0,t1,dt,df));
+              pending=list(self.pending_intercepts[hex]);
+              pending[5]=aircraft[self.field_map['time']];
+              pending=tuple(pending);
+              self.pending_intercepts[hex]=pending
             elif previous_det is None:
-              #if there is no previous notification, add a pending one
-              self.pending_intercepts[hex]=(aircraft[self.field_map['time']],rule['query']%aircraft[self.field_map['hex']],rule['detected_title'],rule['position_title'],rule['alert_type_name']);
+              #if there is no previous notification, add a pending 
+              #print("ADDING PENDING INTERCEPT: %s @ %d"%(hex,aircraft[self.field_map['time']]));
+              self.pending_intercepts[hex]=(aircraft[self.field_map['time']],rule['query']%aircraft[self.field_map['hex']],rule['detected_title'],"%s - %s"%(eta_name,rule['position_title']),rule['alert_type_name'],aircraft[self.field_map['time']]);
 
             #keep track of the pending aircraft that are 'still' on intercept courses so we can cleanup pending_intercepts
-            still_intercepting.append(hex);
             break;
     
     #cleanup pending_intercepts to remove any records of aircraft no longer on intercept courses
     keys = self.pending_intercepts.keys();
     purge=[]
-    #build a purge list of keys not in the 'still_intercepting' list
+    
     for key in keys:
-      if key not in still_intercepting:
+      #if key not in still_intercepting:
+      if self.pending_intercepts[key][5] + config['alert_eta_delay_filter_sec'] < latest_time - 10:
+        #print("EXPIRING %s time=%d delay=%d limit=%d"%(key,self.pending_intercepts[key][5],config['alert_eta_delay_filter_sec'],latest_time+10));
         purge.append(key);
     #remove keys in purge list
     for key in purge:
+      #print("POPPING: %s"%key)
       self.pending_intercepts.pop(key);
 
   def do_notification(self,config,data):

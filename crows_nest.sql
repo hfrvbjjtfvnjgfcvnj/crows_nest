@@ -136,5 +136,5 @@ LOAD DATA INFILE '/opt/crows_nest/interesting_labels.csv' INTO TABLE interesting
 CREATE OR REPLACE TABLE spooky_labels(label varchar(50) PRIMARY KEY NOT NULL);
 LOAD DATA INFILE '/opt/crows_nest/spooky_labels.csv' INTO TABLE spooky_labels FIELDS TERMINATED BY ',';
 
-
-
+-- list of opeartors to ignore
+CREATE OR REPLACE TABLE ignore_registrants(registrant_name varchar(50) PRIMARY KEY NOT NULL);
