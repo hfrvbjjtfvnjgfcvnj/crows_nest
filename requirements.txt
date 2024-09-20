@@ -1,4 +1,6 @@
 inotify==0.2.10
-mariadb==1.1.4
-pyproj==3.4.0
+mariadb
+pyproj
+setuptools
 git+https://github.com/Wyattjoh/pushover
+pytak
