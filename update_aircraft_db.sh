@@ -22,7 +22,7 @@ then
 	echo "ERROR: Unable to load DB credentials. Aborting."
 	ret=-1;
 else
-	mysql -u "${USER}" -p"${CRED}" -e 'source gov_records.sql'
+	mysql -u "${USER}" -p"${CRED}" -e 'source load_faa_data.sql'
 	popd 2>/dev/null 1>/dev/null
 fi
 
