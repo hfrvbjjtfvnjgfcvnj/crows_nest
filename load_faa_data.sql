@@ -1,3 +1,4 @@
+use crows_nest;
 
 -- FAA aircraft registration master table 
 CREATE OR REPLACE TABLE faa_master(
