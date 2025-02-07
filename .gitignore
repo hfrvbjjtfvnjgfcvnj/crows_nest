@@ -7,5 +7,6 @@ aircraft.json
 icao_aircraft_types.json
 *.txt
 audio
+.venv
 venv
 __pycache__

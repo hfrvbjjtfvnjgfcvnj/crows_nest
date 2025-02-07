@@ -37,7 +37,7 @@ source /opt/crows_nest/venv/bin/activate
 
 ./update_aircraft_db.sh
 ./update_tar1090-db.sh
-cp *.py *.sh detector.json *.csv /opt/crows_nest/
+cp crows_nest_agent *.py *.sh detector.json *.csv /opt/crows_nest/
 mkdir -p /opt/crows_nest/plugins
 if [ -f /opt/crows_nest/config.json ] ;
 then

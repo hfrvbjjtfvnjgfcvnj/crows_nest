@@ -5,7 +5,7 @@ echo "Using temp: ${TMP}"
 DIR="$(dirname "$(realpath "${0}")")"
 echo "Running script in: ${DIR}"
 
-wget -O "${TMP}/db.zip" https://registry.faa.gov/database/ReleasableAircraft.zip && cd "${TMP}" && unzip ./db.zip && rsync -va *.txt /opt/crows_nest/ && echo "update_crows_nest.sh" >> /opt/crows_nest/update.log && date >> /opt/crows_nest/update.log
+wget --user-agent="Mozilla/5.0 (X11; Fedora; Linux x86_64; rv:40.0) Gecko/20100101 Firefox/40.0" -O "${TMP}/db.zip" https://registry.faa.gov/database/ReleasableAircraft.zip && cd "${TMP}" && unzip ./db.zip && rsync -va *.txt /opt/crows_nest/ && echo "update_crows_nest.sh" >> /opt/crows_nest/update.log && date >> /opt/crows_nest/update.log
 
 sed -i 's/  */ /g;s/ *,/,/g;s/\r//g;s/,$//g' /opt/crows_nest/MASTER.txt
 cat /opt/crows_nest/MASTER.txt | cut -f1,7 -d ','  > /opt/crows_nest/OWNER_INDEX.txt
@@ -22,7 +22,7 @@ then
 	echo "ERROR: Unable to load DB credentials. Aborting."
 	ret=-1;
 else
-	mysql -u "${USER}" -p"${CRED}" -e 'source gov_records.sql'
+	mysql -u "${USER}" -p"${CRED}" -e 'source load_faa_data.sql'
 	popd 2>/dev/null 1>/dev/null
 fi
 
